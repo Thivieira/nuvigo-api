@@ -1,0 +1,19 @@
+{
+  "name": "weather-ai-nuvigo",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "deploy": "npm run build && git push heroku main"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.6.10",
+    "openai": "^4.72.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "tsx": "^4.7.1"
+  }
+}
