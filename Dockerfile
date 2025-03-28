@@ -1,27 +1,49 @@
 FROM node:20-alpine AS base
 
-FROM base AS builder
-
-RUN apk add --no-cache gcompat
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package*json tsconfig.json src ./
+# Install dependencies based on the preferred package manager
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-RUN npm ci && \
-    npm run build && \
-    npm prune --production
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
 
+# Next.js collects completely anonymous telemetry data about general usage.
+# Learn more here: https://nextjs.org/telemetry
+# Uncomment the following line in case you want to disable telemetry during the build.
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN npm run build
+
+# Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
 
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 hono
+RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder --chown=hono:nodejs /app/node_modules /app/node_modules
-COPY --from=builder --chown=hono:nodejs /app/dist /app/dist
-COPY --from=builder --chown=hono:nodejs /app/package.json /app/package.json
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
 
-USER hono
-EXPOSE 3000
+USER nextjs
 
-CMD ["node", "/app/dist/index.js"]
+EXPOSE 3333
+
+ENV PORT 3333
+ENV HOSTNAME "0.0.0.0"
+
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3333/health || exit 1
+
+CMD ["node", "dist/index.js"]

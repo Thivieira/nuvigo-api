@@ -1,14 +1,23 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "es2020",
     "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "node",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "lib": [
-      "ESNext"
-    ],
-    "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx"
+    "sourceMap": true,
+    "inlineSources": true,
+    "sourceRoot": "/"
   },
+  "include": [
+    "src/**/*.ts",
+  ]
 }
