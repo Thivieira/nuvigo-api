@@ -3,20 +3,13 @@ import { weatherRoutes } from './routes/weather.routes';
 import userRoutes from './routes/user.routes';
 import chatRoutes from './routes/chat.routes';
 import authRoutes from './routes/auth.routes';
-import jwt from '@fastify/jwt';
-import { env } from './env';
+import registerPlugins from './plugins';
 
 const app = Fastify({
   logger: true
 });
 
-// Register JWT plugin
-app.register(jwt, {
-  secret: env.JWT_SECRET,
-  sign: {
-    expiresIn: '24h'
-  }
-});
+registerPlugins(app);
 
 // Register routes
 app.register(authRoutes, { prefix: '/api/auth' });

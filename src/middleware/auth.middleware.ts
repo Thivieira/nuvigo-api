@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
-import { verifyToken } from '../utils/jwt.utils';
+import { verifyToken } from '@/utils/jwt.utils';
 
 export const authenticate = async (request: FastifyRequest, reply: FastifyReply) => {
   try {

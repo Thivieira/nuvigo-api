@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { ChatService } from '../services/chat.service';
-import { CreateChatDto, UpdateChatDto } from '../types/chat';
+import { ChatService } from '@/services/chat.service';
+import { CreateChatDto, UpdateChatDto } from '@/types/chat';
 import { Prisma } from '@prisma/client';
 
 const chatService = new ChatService();

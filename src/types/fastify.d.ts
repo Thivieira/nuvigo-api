@@ -1,4 +1,4 @@
-import { JWTPayload } from '../utils/jwt.utils';
+import { JWTPayload } from '@/utils/jwt.utils';
 
 declare module 'fastify' {
   interface FastifyRequest {

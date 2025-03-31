@@ -1,8 +1,8 @@
 import { OpenAI } from 'openai';
-import { OPENAI_API_KEY } from '../config';
+import { env } from '@/env';
 
 const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
+  apiKey: env.OPENAI_API_KEY,
 });
 
 const createOpenAIResponse = async (prompt: string): Promise<string> => {

@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { UserController } from '../controllers/user.controller';
-import { CreateUserDto, UpdateUserDto } from '../types/user';
+import { UserController } from '@/controllers/user.controller';
+import { CreateUserDto, UpdateUserDto } from '@/types/user';
 
 const userController = new UserController();
 

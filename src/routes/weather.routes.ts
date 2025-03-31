@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
-import { WeatherController } from '../controllers/weather.controller';
-import { WeatherQuery } from '../types/weather';
-import { authenticate } from '../decorators/auth.decorator';
+import { WeatherController } from '@/controllers/weather.controller';
+import { WeatherQuery } from '@/types/weather';
+import { authenticate } from '@/decorators/auth.decorator';
 
 const weatherController = new WeatherController();
 

@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { UserService } from '../services/user.service';
-import { CreateUserDto, UpdateUserDto } from '../types/user';
+import { UserService } from '@/services/user.service';
+import { CreateUserDto, UpdateUserDto } from '@/types/user';
 import { Prisma } from '@prisma/client';
 
 const userService = new UserService();

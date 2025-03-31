@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import { RegisterDto, LoginDto, AuthResponse } from '../types/auth';
+import { RegisterDto, LoginDto, AuthResponse } from '@/types/auth';
 import { Prisma } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 

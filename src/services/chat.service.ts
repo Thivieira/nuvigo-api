@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { CreateChatDto, UpdateChatDto, ChatResponse, ChatWithUser } from '../types/chat';
+import { CreateChatDto, UpdateChatDto, ChatResponse, ChatWithUser } from '@/types/chat';
 
 const prisma = new PrismaClient();
 

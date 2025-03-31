@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { ChatController } from '../controllers/chat.controller';
-import { CreateChatDto, UpdateChatDto } from '../types/chat';
+import { ChatController } from '@/controllers/chat.controller';
+import { CreateChatDto, UpdateChatDto } from '@/types/chat';
 
 const chatController = new ChatController();
 

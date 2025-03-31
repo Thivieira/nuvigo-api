@@ -1,9 +1,9 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { WeatherService } from '../services/weather.service';
-import { ChatService } from '../services/chat.service';
-import { WeatherQuery } from '../types/weather';
-import { CreateChatDto } from '../types/chat';
-import { JWTPayload } from '../decorators/auth.decorator';
+import { WeatherService } from '@/services/weather.service';
+import { ChatService } from '@/services/chat.service';
+import { WeatherQuery } from '@/types/weather';
+import { CreateChatDto } from '@/types/chat';
+import { JWTPayload } from '@/decorators/auth.decorator';
 
 const weatherService = new WeatherService();
 const chatService = new ChatService();
