@@ -10,10 +10,29 @@ export interface LoginDto {
 }
 
 export interface AuthResponse {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   user: {
     id: string;
     email: string;
     name: string | null;
+    emailVerified?: boolean;
   };
+}
+
+export interface RefreshTokenDto {
+  refreshToken: string;
+}
+
+export interface ForgotPasswordDto {
+  email: string;
+}
+
+export interface ResetPasswordDto {
+  token: string;
+  password: string;
+}
+
+export interface VerifyEmailDto {
+  token: string;
 } 

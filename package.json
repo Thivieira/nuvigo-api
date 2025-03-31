@@ -1,10 +1,11 @@
 {
   "name": "weather-ai-nuvigo",
-  "type": "module",
   "scripts": {
     "dev": "NODE_NO_WARNINGS=1 tsx watch src/index.ts",
     "start": "NODE_NO_WARNINGS=1 node dist/index.js",
-    "deploy": "npm run build && git push heroku main"
+    "deploy": "npm run build && git push heroku main",
+    "build": "tsc && tsc-alias",
+    "prisma:generate": "prisma generate"
   },
   "dependencies": {
     "@fastify/jwt": "^9.1.0",
@@ -17,6 +18,7 @@
     "bcryptjs": "^3.0.2",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.2",
+    "fastify-type-provider-zod": "^4.0.2",
     "jsonwebtoken": "^9.0.2",
     "openai": "^4.90.0",
     "zod": "^3.24.2"
@@ -24,7 +26,9 @@
   "devDependencies": {
     "@types/node": "^22.13.14",
     "prisma": "^6.5.0",
-    "tsx": "^4.19.3"
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "tsc-alias": "^1.8.13"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

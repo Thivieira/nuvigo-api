@@ -14,14 +14,17 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  password      String
-  name          String?
-  chats         Chat[]
-  refreshTokens RefreshToken[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                 String               @id @default(uuid())
+  email              String               @unique
+  password           String
+  name               String?
+  emailVerified      Boolean              @default(false)
+  chats              Chat[]
+  refreshTokens      RefreshToken[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  VerificationToken  VerificationToken[]
+  PasswordResetToken PasswordResetToken[]
 }
 
 model Chat {
@@ -39,6 +42,30 @@ model Chat {
 }
 
 model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model VerificationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model PasswordResetToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String

@@ -3,8 +3,16 @@ import { env } from './env';
 import { FastifyInstance } from 'fastify';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import { swaggerOptions, swaggerUiOptions } from './config/swagger';
+import {
+  serializerCompiler,
+  validatorCompiler
+} from 'fastify-type-provider-zod';
 
 export default async function registerPlugins(app: FastifyInstance) {
+  // Set Zod validator and serializer compilers
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
 
   // Register JWT plugin
   app.register(jwt, {
@@ -16,21 +24,6 @@ export default async function registerPlugins(app: FastifyInstance) {
 
   await app.register(swagger)
 
-  await app.register(swaggerUi, {
-    routePrefix: '/documentation',
-    uiConfig: {
-      docExpansion: 'full',
-      deepLinking: false
-    },
-    uiHooks: {
-      onRequest: function (request, reply, next) { next() },
-      preHandler: function (request, reply, next) { next() }
-    },
-    staticCSP: true,
-    transformStaticCSP: (header) => header,
-    transformSpecification: (swaggerObject, request, reply) => { return swaggerObject },
-    transformSpecificationClone: true
-  })
-
+  await app.register(swaggerUi, swaggerUiOptions);
 }
 

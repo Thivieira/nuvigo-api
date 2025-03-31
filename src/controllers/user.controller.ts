@@ -2,42 +2,53 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { UserService } from '@/services/user.service';
 import { CreateUserDto, UpdateUserDto } from '@/types/user';
 import { Prisma } from '@prisma/client';
+import { BaseController } from './base.controller';
 
-const userService = new UserService();
+export class UserController extends BaseController {
+  constructor(private readonly userService: UserService) {
+    super();
+  }
 
-export class UserController {
   async create(request: FastifyRequest<{ Body: CreateUserDto }>, reply: FastifyReply) {
     try {
-      const user = await userService.create(request.body);
-      return reply.status(201).send(user);
+      const user = await this.userService.create(request.body);
+      return this.sendSuccess(reply, user, 201);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          return reply.status(400).send({ error: 'Email already exists' });
+          return this.sendError(reply, {
+            error: 'Email already exists',
+            code: 'EMAIL_EXISTS',
+            details: { email: request.body.email }
+          }, 400);
         }
       }
-      return reply.status(500).send({ error: 'Internal server error' });
+      return this.sendError(reply, this.handleError(error));
     }
   }
 
   async findAll(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const users = await userService.findAll();
-      return reply.send(users);
+      const users = await this.userService.findAll();
+      return this.sendSuccess(reply, users);
     } catch (error) {
-      return reply.status(500).send({ error: 'Internal server error' });
+      return this.sendError(reply, this.handleError(error));
     }
   }
 
   async findById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     try {
-      const user = await userService.findById(request.params.id);
+      const user = await this.userService.findById(request.params.id);
       if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
+        return this.sendError(reply, {
+          error: 'User not found',
+          code: 'USER_NOT_FOUND',
+          details: { id: request.params.id }
+        }, 404);
       }
-      return reply.send(user);
+      return this.sendSuccess(reply, user);
     } catch (error) {
-      return reply.status(500).send({ error: 'Internal server error' });
+      return this.sendError(reply, this.handleError(error));
     }
   }
 
@@ -46,32 +57,44 @@ export class UserController {
     reply: FastifyReply
   ) {
     try {
-      const user = await userService.update(request.params.id, request.body);
-      return reply.send(user);
+      const user = await this.userService.update(request.params.id, request.body);
+      return this.sendSuccess(reply, user);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
-          return reply.status(404).send({ error: 'User not found' });
+          return this.sendError(reply, {
+            error: 'User not found',
+            code: 'USER_NOT_FOUND',
+            details: { id: request.params.id }
+          }, 404);
         }
         if (error.code === 'P2002') {
-          return reply.status(400).send({ error: 'Email already exists' });
+          return this.sendError(reply, {
+            error: 'Email already exists',
+            code: 'EMAIL_EXISTS',
+            details: { email: request.body.email }
+          }, 400);
         }
       }
-      return reply.status(500).send({ error: 'Internal server error' });
+      return this.sendError(reply, this.handleError(error));
     }
   }
 
   async delete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     try {
-      await userService.delete(request.params.id);
-      return reply.status(204).send();
+      await this.userService.delete(request.params.id);
+      return this.sendSuccess(reply, null, 204);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
-          return reply.status(404).send({ error: 'User not found' });
+          return this.sendError(reply, {
+            error: 'User not found',
+            code: 'USER_NOT_FOUND',
+            details: { id: request.params.id }
+          }, 404);
         }
       }
-      return reply.status(500).send({ error: 'Internal server error' });
+      return this.sendError(reply, this.handleError(error));
     }
   }
 } 

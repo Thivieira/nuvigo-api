@@ -1,22 +1,24 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyReply } from 'fastify';
 import { WeatherService } from '@/services/weather.service';
 import { ChatService } from '@/services/chat.service';
-import { WeatherQuery } from '@/types/weather';
+import { BaseController } from './base.controller';
+import { WeatherRouteHandler } from '@/types/weather';
 import { CreateChatDto } from '@/types/chat';
-import { JWTPayload } from '@/decorators/auth.decorator';
+import { ErrorResponse } from '@/types/common';
 
-const weatherService = new WeatherService();
-const chatService = new ChatService();
-
-export class WeatherController {
-  async getWeather(
-    request: FastifyRequest<{ Querystring: WeatherQuery }> & { user: JWTPayload },
-    reply: FastifyReply
+export class WeatherController extends BaseController {
+  constructor(
+    private readonly weatherService: WeatherService,
+    private readonly chatService: ChatService
   ) {
-    try {
-      const weatherData = await weatherService.getWeather(request.query);
+    super();
+  }
 
-      // Save the weather response as a chat entry
+  async getWeather(request: WeatherRouteHandler, reply: FastifyReply) {
+    try {
+      const weatherData = await this.weatherService.getWeather(request.query);
+
+      // Save weather response to chat history
       const chatEntry: CreateChatDto = {
         userId: request.user.userId,
         location: weatherData.location,
@@ -25,17 +27,20 @@ export class WeatherController {
         naturalResponse: weatherData.naturalResponse,
       };
 
-      const savedChat = await chatService.create(chatEntry);
+      await this.chatService.create(chatEntry);
 
-      return reply.send({
-        ...weatherData,
-        chatId: savedChat.id,
-      });
-    } catch (error: any) {
-      if (error.status === 404) {
-        return reply.status(404).send({ error: error.message });
+      return this.sendSuccess(reply, weatherData);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Weather data not found.') {
+        const errorResponse: ErrorResponse = {
+          error: 'Location not found',
+          code: 'NOT_FOUND',
+          details: { message: 'The specified location could not be found' },
+        };
+        return this.sendError(reply, errorResponse, 404);
       }
-      return reply.status(500).send({ error: 'Internal server error' });
+
+      return this.sendError(reply, this.handleError(error));
     }
   }
 } 
