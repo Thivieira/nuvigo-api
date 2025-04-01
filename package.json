@@ -3,7 +3,6 @@
   "scripts": {
     "dev": "NODE_NO_WARNINGS=1 tsx watch src/index.ts",
     "start": "NODE_NO_WARNINGS=1 node dist/index.js",
-    "deploy": "npm run build && git push heroku main",
     "build": "tsc && tsc-alias",
     "prisma:generate": "prisma generate"
   },
@@ -20,11 +19,11 @@
     "fastify": "^5.2.2",
     "fastify-type-provider-zod": "^4.0.2",
     "jsonwebtoken": "^9.0.2",
-    "openai": "^4.90.0",
+    "openai": "^4.91.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/node": "^22.13.14",
+    "@types/node": "^22.13.16",
     "prisma": "^6.5.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",

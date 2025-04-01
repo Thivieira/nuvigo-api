@@ -1,10 +1,11 @@
-import { FastifyReply } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import { WeatherService } from '@/services/weather.service';
 import { ChatService } from '@/services/chat.service';
 import { BaseController } from './base.controller';
-import { WeatherRouteHandler } from '@/types/weather';
+import { WeatherQuery } from '@/types/weather';
 import { CreateChatDto } from '@/types/chat';
 import { ErrorResponse } from '@/types/common';
+import { JWTPayload } from '@/types/auth';
 
 export class WeatherController extends BaseController {
   constructor(
@@ -14,7 +15,7 @@ export class WeatherController extends BaseController {
     super();
   }
 
-  async getWeather(request: WeatherRouteHandler, reply: FastifyReply) {
+  async getWeather(request: FastifyRequest<{ Querystring: WeatherQuery }> & { user: JWTPayload }, reply: FastifyReply) {
     try {
       const weatherData = await this.weatherService.getWeather(request.query);
 

@@ -1,9 +1,5 @@
-import { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
-
-export interface JWTPayload {
-  userId: string;
-  email: string;
-}
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { JWTPayload } from '@/types/auth';
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {

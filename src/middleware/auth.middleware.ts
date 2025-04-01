@@ -1,9 +1,6 @@
 import { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
 import { verifyToken } from '@/utils/jwt.utils';
-
-interface JWTPayload {
-  userId: string;
-}
+import { JWTPayload } from '@/types/auth';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -19,7 +16,7 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const decoded = verifyToken(token);
+    const decoded = verifyToken(token) as JWTPayload;
     request.user = decoded;
   } catch (error) {
     return reply.code(401).send({ error: 'Invalid token' });
@@ -28,7 +25,7 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
 
 export const registerAuthMiddleware = (fastify: FastifyInstance) => {
   fastify.decorateRequest('user', {
-    getter: () => ({ userId: '' }),
+    getter: () => ({ userId: '', email: '' } as JWTPayload),
     setter: (value: JWTPayload) => value,
   });
 }; 

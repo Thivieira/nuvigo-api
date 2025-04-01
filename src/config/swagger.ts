@@ -2,31 +2,27 @@ import { SwaggerOptions } from '@fastify/swagger';
 import { FastifySwaggerUiOptions } from '@fastify/swagger-ui';
 
 export const swaggerOptions: SwaggerOptions = {
-  openapi: {
+  swagger: {
     info: {
       title: 'Nuvigo API Documentation',
       description: 'API documentation for Nuvigo services',
       version: '1.0.0'
     },
-    servers: [
-      {
-        url: 'http://localhost:3333',
-        description: 'Development server'
-      }
-    ],
+    host: 'localhost:3333',
+    schemes: ['http'],
+    consumes: ['application/json'],
+    produces: ['application/json'],
     tags: [
       { name: 'auth', description: 'Authentication endpoints' },
       { name: 'users', description: 'User management endpoints' },
       { name: 'chat', description: 'Chat service endpoints' },
       { name: 'weather', description: 'Weather service endpoints' }
     ],
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT'
-        }
+    securityDefinitions: {
+      bearerAuth: {
+        type: 'apiKey',
+        name: 'Authorization',
+        in: 'header'
       }
     }
   }
@@ -38,14 +34,8 @@ export const swaggerUiOptions: FastifySwaggerUiOptions = {
     docExpansion: 'full',
     deepLinking: false,
     displayRequestDuration: true,
-    filter: true,
-    showCommonExtensions: true,
-    syntaxHighlight: {
-      theme: 'monokai'
-    }
+    filter: true
   },
   staticCSP: true,
-  transformStaticCSP: (header) => header,
-  transformSpecification: (swaggerObject) => swaggerObject,
-  transformSpecificationClone: true
+  transformStaticCSP: (header) => header
 }; 

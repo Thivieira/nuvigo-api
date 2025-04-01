@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { FastifyRequest } from 'fastify';
-import { JWTPayload } from '@/decorators/auth.decorator';
+import { JWTPayload } from '@/types/auth';
 import { ErrorResponseSchema, PaginationQuerySchema } from './common';
 
 // API Response Types
@@ -12,19 +12,19 @@ export const WeatherConditionSchema = z.object({
   precipitation: z.number(),
   pressureSurfaceLevel: z.number(),
   uvIndex: z.number(),
-});
+}).describe('Weather conditions for a specific location');
 
 export const LocationSchema = z.object({
   name: z.string(),
   lat: z.number(),
   lon: z.number(),
-});
+}).describe('Geographic location information');
 
 export const WeatherDataSchema = z.object({
   time: z.string(),
   weather: WeatherConditionSchema,
   location: LocationSchema,
-});
+}).describe('Complete weather data for a location');
 
 // Request Types
 export const WeatherQuerySchema = z.object({
@@ -32,7 +32,7 @@ export const WeatherQuerySchema = z.object({
   language: z.string().default('en').refine((val) => ['en', 'pt'].includes(val), {
     message: 'Language must be either "en" or "pt"',
   }),
-});
+}).describe('Query parameters for weather information');
 
 // Response Types
 export const WeatherResponseSchema = z.object({
@@ -40,11 +40,11 @@ export const WeatherResponseSchema = z.object({
   temperature: z.string(),
   condition: WeatherConditionSchema,
   naturalResponse: z.string(),
-});
+}).describe('Weather response with natural language description');
 
 export const ChatWeatherResponseSchema = WeatherResponseSchema.extend({
   chatId: z.string().uuid(),
-});
+}).describe('Weather response with chat ID');
 
 // API Types
 export const TomorrowIoConditionSchema = z.object({
@@ -53,7 +53,7 @@ export const TomorrowIoConditionSchema = z.object({
     values: WeatherConditionSchema,
   }),
   location: LocationSchema,
-});
+}).describe('Weather data from Tomorrow.io API');
 
 // TypeScript Types
 export type WeatherData = z.infer<typeof WeatherDataSchema>;

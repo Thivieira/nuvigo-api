@@ -1,39 +1,71 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { WeatherController } from '@/controllers/weather.controller';
 import { WeatherService } from '@/services/weather.service';
 import { ChatService } from '@/services/chat.service';
-import { authenticate } from '@/decorators/auth.decorator';
-import { z } from 'zod';
-import { ZodTypeProvider } from 'fastify-type-provider-zod';
-import {
-  WeatherQuerySchema,
-  ChatWeatherResponseSchema,
-} from '@/types/weather';
-import { ErrorResponseSchema } from '@/types/common';
+import { authenticate } from '@/middleware/auth.middleware';
+import { WeatherQuery } from '@/types/weather';
+import { JWTPayload } from '@/types/auth';
 
-const weatherService = new WeatherService();
 const chatService = new ChatService();
+const weatherService = new WeatherService();
 const weatherController = new WeatherController(weatherService, chatService);
 
-export async function weatherRoutes(fastify: FastifyInstance) {
-  fastify.withTypeProvider<ZodTypeProvider>().route({
+export default async function weatherRoutes(fastify: FastifyInstance) {
+  fastify.route<{
+    Querystring: WeatherQuery;
+  }>({
     method: 'GET',
-    url: '/',
+    url: '/weather',
     schema: {
-      description: 'Get weather information for a location',
+      description: 'Get weather information by location',
       tags: ['weather'],
-      querystring: WeatherQuerySchema,
-      response: {
-        200: ChatWeatherResponseSchema,
-        400: ErrorResponseSchema,
-        401: ErrorResponseSchema,
-        404: ErrorResponseSchema,
-        500: ErrorResponseSchema,
+      querystring: {
+        type: 'object',
+        required: ['location', 'language'],
+        properties: {
+          location: { type: 'string' },
+          language: { type: 'string', default: 'en' }
+        }
       },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            location: { type: 'string' },
+            temperature: { type: 'string' },
+            condition: { type: 'string' },
+            naturalResponse: { type: 'string' }
+          }
+        },
+        400: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        }
+      }
     },
     onRequest: [authenticate],
-    handler: async (request, reply) => {
-      return weatherController.getWeather(request as any, reply);
+    handler: async (request: FastifyRequest<{ Querystring: WeatherQuery }> & { user: JWTPayload }, reply: FastifyReply) => {
+      return weatherController.getWeather(request, reply);
     },
   });
 }

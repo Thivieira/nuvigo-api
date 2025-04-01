@@ -1,145 +1,287 @@
 import { FastifyInstance } from 'fastify';
 import { ChatController } from '@/controllers/chat.controller';
 import { ChatService } from '@/services/chat.service';
-import { z } from 'zod';
-import { ZodTypeProvider } from 'fastify-type-provider-zod';
-
-// Define Zod schemas
-const CreateChatSchema = z.object({
-  userId: z.string().uuid(),
-  location: z.string(),
-  temperature: z.string(),
-  condition: z.string(),
-  naturalResponse: z.string(),
-});
-
-const UpdateChatSchema = z.object({
-  location: z.string().optional(),
-  temperature: z.string().optional(),
-  condition: z.string().optional(),
-  naturalResponse: z.string().optional(),
-});
-
-const ChatIdParamSchema = z.object({
-  id: z.string().uuid(),
-});
-
-const UserIdParamSchema = z.object({
-  userId: z.string().uuid(),
-});
-
-const ChatResponseSchema = z.object({
-  id: z.string().uuid(),
-  userId: z.string().uuid(),
-  location: z.string(),
-  temperature: z.string(),
-  condition: z.string(),
-  naturalResponse: z.string(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-});
-
-const ChatsResponseSchema = z.array(ChatResponseSchema);
-
-const ErrorResponseSchema = z.object({
-  error: z.string(),
-});
 
 const chatService = new ChatService();
 const chatController = new ChatController(chatService);
 
 export default async function chatRoutes(fastify: FastifyInstance) {
-  fastify.withTypeProvider<ZodTypeProvider>().route({
+  fastify.route({
     method: 'POST',
     url: '/chats',
     schema: {
       description: 'Create a new chat',
       tags: ['chat'],
-      body: CreateChatSchema,
-      response: {
-        201: ChatResponseSchema,
-        400: ErrorResponseSchema,
-        500: ErrorResponseSchema,
+      body: {
+        type: 'object',
+        required: ['userId', 'location', 'temperature', 'condition', 'naturalResponse'],
+        properties: {
+          userId: { type: 'string', format: 'uuid' },
+          location: { type: 'string' },
+          temperature: { type: 'string' },
+          condition: { type: 'string' },
+          naturalResponse: { type: 'string' }
+        }
       },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            userId: { type: 'string', format: 'uuid' },
+            location: { type: 'string' },
+            temperature: { type: 'string' },
+            condition: { type: 'string' },
+            naturalResponse: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' }
+          }
+        },
+        400: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        }
+      }
     },
     handler: chatController.create.bind(chatController),
   });
 
-  fastify.withTypeProvider<ZodTypeProvider>().route({
+  fastify.route({
     method: 'GET',
     url: '/chats',
     schema: {
       description: 'Get all chats',
       tags: ['chat'],
       response: {
-        200: ChatsResponseSchema,
-        500: ErrorResponseSchema,
-      },
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              userId: { type: 'string', format: 'uuid' },
+              location: { type: 'string' },
+              temperature: { type: 'string' },
+              condition: { type: 'string' },
+              naturalResponse: { type: 'string' },
+              createdAt: { type: 'string', format: 'date-time' },
+              updatedAt: { type: 'string', format: 'date-time' }
+            }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        }
+      }
     },
     handler: chatController.findAll.bind(chatController),
   });
 
-  fastify.withTypeProvider<ZodTypeProvider>().route({
+  fastify.route({
     method: 'GET',
     url: '/chats/:id',
     schema: {
       description: 'Get chat by ID',
       tags: ['chat'],
-      params: ChatIdParamSchema,
-      response: {
-        200: ChatResponseSchema,
-        404: ErrorResponseSchema,
-        500: ErrorResponseSchema,
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid' }
+        }
       },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            userId: { type: 'string', format: 'uuid' },
+            location: { type: 'string' },
+            temperature: { type: 'string' },
+            condition: { type: 'string' },
+            naturalResponse: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' }
+          }
+        },
+        404: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        }
+      }
     },
     handler: chatController.findById.bind(chatController),
   });
 
-  fastify.withTypeProvider<ZodTypeProvider>().route({
+  fastify.route({
     method: 'GET',
-    url: '/chats/user/:userId',
+    url: '/users/:userId/chats',
     schema: {
       description: 'Get chats by user ID',
       tags: ['chat'],
-      params: UserIdParamSchema,
-      response: {
-        200: ChatsResponseSchema,
-        404: ErrorResponseSchema,
-        500: ErrorResponseSchema,
+      params: {
+        type: 'object',
+        required: ['userId'],
+        properties: {
+          userId: { type: 'string', format: 'uuid' }
+        }
       },
+      response: {
+        200: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              userId: { type: 'string', format: 'uuid' },
+              location: { type: 'string' },
+              temperature: { type: 'string' },
+              condition: { type: 'string' },
+              naturalResponse: { type: 'string' },
+              createdAt: { type: 'string', format: 'date-time' },
+              updatedAt: { type: 'string', format: 'date-time' }
+            }
+          }
+        },
+        404: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        }
+      }
     },
     handler: chatController.findByUserId.bind(chatController),
   });
 
-  fastify.withTypeProvider<ZodTypeProvider>().route({
+  fastify.route({
     method: 'PUT',
     url: '/chats/:id',
     schema: {
       description: 'Update chat by ID',
       tags: ['chat'],
-      params: ChatIdParamSchema,
-      body: UpdateChatSchema,
-      response: {
-        200: ChatResponseSchema,
-        404: ErrorResponseSchema,
-        500: ErrorResponseSchema,
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid' }
+        }
       },
+      body: {
+        type: 'object',
+        properties: {
+          location: { type: 'string' },
+          temperature: { type: 'string' },
+          condition: { type: 'string' },
+          naturalResponse: { type: 'string' }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            userId: { type: 'string', format: 'uuid' },
+            location: { type: 'string' },
+            temperature: { type: 'string' },
+            condition: { type: 'string' },
+            naturalResponse: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' }
+          }
+        },
+        404: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        }
+      }
     },
     handler: chatController.update.bind(chatController),
   });
 
-  fastify.withTypeProvider<ZodTypeProvider>().route({
+  fastify.route({
     method: 'DELETE',
     url: '/chats/:id',
     schema: {
       description: 'Delete chat by ID',
       tags: ['chat'],
-      params: ChatIdParamSchema,
-      response: {
-        204: z.null(),
-        404: ErrorResponseSchema,
-        500: ErrorResponseSchema,
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string', format: 'uuid' }
+        }
       },
+      response: {
+        204: { type: 'null' },
+        404: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        }
+      }
     },
     handler: chatController.delete.bind(chatController),
   });
