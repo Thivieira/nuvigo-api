@@ -2,7 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { WeatherService } from '@/services/weather.service';
 import { ChatService } from '@/services/chat.service';
 import { BaseController } from './base.controller';
-import { WeatherQuery } from '@/types/weather';
+import { WeatherQuery, TimelineRequest } from '@/types/weather';
 import { CreateChatDto } from '@/types/chat';
 import { ErrorResponse } from '@/types/common';
 import { JWTPayload } from '@/types/auth';
@@ -59,6 +59,55 @@ export class WeatherController extends BaseController {
       await this.chatService.create(chatEntry);
 
       return this.sendSuccess(reply, formattedWeatherData);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Weather data not found.') {
+        const errorResponse: ErrorResponse = {
+          error: 'Location not found',
+          code: 'NOT_FOUND',
+          details: { message: 'The specified location could not be found' },
+        };
+        return this.sendError(reply, errorResponse, 404);
+      }
+
+      return this.sendError(reply, this.handleError(error));
+    }
+  }
+
+  async getTimelineWeather(request: FastifyRequest<{ Body: TimelineRequest }> & { user: JWTPayload }, reply: FastifyReply) {
+    try {
+      const weatherData = await this.weatherService.getTimelineWeather(request.body);
+      return this.sendSuccess(reply, weatherData);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Weather timeline data not found.') {
+        const errorResponse: ErrorResponse = {
+          error: 'Location not found',
+          code: 'NOT_FOUND',
+          details: { message: 'The specified location could not be found' },
+        };
+        return this.sendError(reply, errorResponse, 404);
+      }
+
+      return this.sendError(reply, this.handleError(error));
+    }
+  }
+
+  async getFlexibleWeather(request: FastifyRequest<{ Body: TimelineRequest & { query: string } }> & { user: JWTPayload }, reply: FastifyReply) {
+    try {
+      const { query, ...timelineRequest } = request.body;
+      const weatherData = await this.weatherService.getFlexibleWeather(timelineRequest, query);
+
+      // Save weather response to chat history
+      const chatEntry: CreateChatDto = {
+        userId: request.user.userId,
+        location: weatherData.location,
+        temperature: weatherData.temperature,
+        condition: JSON.stringify(weatherData.condition),
+        naturalResponse: weatherData.naturalResponse,
+      };
+
+      await this.chatService.create(chatEntry);
+
+      return this.sendSuccess(reply, weatherData);
     } catch (error) {
       if (error instanceof Error && error.message === 'Weather data not found.') {
         const errorResponse: ErrorResponse = {
