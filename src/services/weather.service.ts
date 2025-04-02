@@ -35,20 +35,53 @@ export class WeatherService {
 
     try {
       const weatherData = await this.fetchWeatherData(location);
-      const description = getWeatherDescription(weatherData.weather.uvIndex);
+      console.log('Weather data:', weatherData);
+      const description = getWeatherDescription(weatherData.weather.weatherCode);
       const prompt = getPromptFromLanguage(language, {
         name: weatherData.location.name,
         temperature: weatherData.weather.temperature,
         description,
+        condition: {
+          humidity: weatherData.weather.humidity,
+          windSpeed: weatherData.weather.windSpeed,
+          cloudCover: weatherData.weather.cloudCover,
+          precipitationProbability: weatherData.weather.precipitationProbability,
+          uvIndex: weatherData.weather.uvIndex,
+        },
       });
       const naturalResponse = await createOpenAIResponse(prompt);
 
       const roundedTemperature = Math.round(weatherData.weather.temperature);
 
+      // Create a properly structured condition object
+      const condition = {
+        cloudBase: weatherData.weather.cloudBase,
+        cloudCeiling: weatherData.weather.cloudCeiling,
+        cloudCover: weatherData.weather.cloudCover,
+        dewPoint: weatherData.weather.dewPoint,
+        freezingRainIntensity: weatherData.weather.freezingRainIntensity,
+        humidity: weatherData.weather.humidity,
+        precipitationProbability: weatherData.weather.precipitationProbability,
+        pressureSeaLevel: weatherData.weather.pressureSeaLevel,
+        pressureSurfaceLevel: weatherData.weather.pressureSurfaceLevel,
+        rainIntensity: weatherData.weather.rainIntensity,
+        sleetIntensity: weatherData.weather.sleetIntensity,
+        snowIntensity: weatherData.weather.snowIntensity,
+        temperature: weatherData.weather.temperature,
+        temperatureApparent: weatherData.weather.temperatureApparent,
+        uvHealthConcern: weatherData.weather.uvHealthConcern,
+        uvIndex: weatherData.weather.uvIndex,
+        visibility: weatherData.weather.visibility,
+        weatherCode: weatherData.weather.weatherCode,
+        windDirection: weatherData.weather.windDirection,
+        windGust: weatherData.weather.windGust,
+        windSpeed: weatherData.weather.windSpeed,
+      };
+
       return {
         location: weatherData.location.name,
         temperature: `${roundedTemperature}°C`,
-        condition: weatherData.weather,
+        condition,
         naturalResponse,
       };
     } catch (error) {

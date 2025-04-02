@@ -19,18 +19,46 @@ export class WeatherController extends BaseController {
     try {
       const weatherData = await this.weatherService.getWeather(request.query);
 
+      console.log('Weather data:', weatherData);
+
+      // Format condition data for response
+      const formattedWeatherData = {
+        ...weatherData,
+        condition: {
+          temperature: weatherData.condition.temperature,
+          temperatureApparent: weatherData.condition.temperatureApparent,
+          humidity: weatherData.condition.humidity,
+          windSpeed: weatherData.condition.windSpeed,
+          windDirection: weatherData.condition.windDirection,
+          windGust: weatherData.condition.windGust,
+          precipitationProbability: weatherData.condition.precipitationProbability,
+          rainIntensity: weatherData.condition.rainIntensity,
+          snowIntensity: weatherData.condition.snowIntensity,
+          sleetIntensity: weatherData.condition.sleetIntensity,
+          freezingRainIntensity: weatherData.condition.freezingRainIntensity,
+          cloudCover: weatherData.condition.cloudCover,
+          visibility: weatherData.condition.visibility,
+          pressureSurfaceLevel: weatherData.condition.pressureSurfaceLevel,
+          pressureSeaLevel: weatherData.condition.pressureSeaLevel,
+          dewPoint: weatherData.condition.dewPoint,
+          uvIndex: weatherData.condition.uvIndex,
+          uvHealthConcern: weatherData.condition.uvHealthConcern,
+          weatherCode: weatherData.condition.weatherCode
+        }
+      };
+
       // Save weather response to chat history
       const chatEntry: CreateChatDto = {
         userId: request.user.userId,
         location: weatherData.location,
         temperature: weatherData.temperature,
-        condition: JSON.stringify(weatherData.condition),
+        condition: JSON.stringify(formattedWeatherData.condition),
         naturalResponse: weatherData.naturalResponse,
       };
 
       await this.chatService.create(chatEntry);
 
-      return this.sendSuccess(reply, weatherData);
+      return this.sendSuccess(reply, formattedWeatherData);
     } catch (error) {
       if (error instanceof Error && error.message === 'Weather data not found.') {
         const errorResponse: ErrorResponse = {

@@ -1,7 +1,8 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest } from 'fastify';
 import { AuthController } from '@/controllers/auth.controller';
 import { AuthService } from '@/services/auth.service';
 import { authenticate } from '@/middleware/auth.middleware';
+import { RegisterDto } from '@/types/auth';
 
 export default async function authRoutes(fastify: FastifyInstance) {
   const authService = new AuthService(fastify);
@@ -9,59 +10,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   fastify.route({
     method: 'POST',
-    url: '/auth/login',
-    schema: {
-      description: 'Login with email and password',
-      tags: ['auth'],
-      body: {
-        type: 'object',
-        required: ['email', 'password'],
-        properties: {
-          email: { type: 'string', format: 'email' },
-          password: { type: 'string', minLength: 6 }
-        }
-      },
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            token: { type: 'string' },
-            user: {
-              type: 'object',
-              properties: {
-                id: { type: 'string', format: 'uuid' },
-                name: { type: 'string' },
-                email: { type: 'string', format: 'email' },
-                createdAt: { type: 'string', format: 'date-time' },
-                updatedAt: { type: 'string', format: 'date-time' }
-              }
-            }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
-          }
-        }
-      }
-    },
-    handler: authController.login.bind(authController),
-  });
-
-  fastify.route({
-    method: 'POST',
-    url: '/auth/register',
+    url: '/register',
     schema: {
       description: 'Register a new user',
       tags: ['auth'],
@@ -98,8 +47,45 @@ export default async function authRoutes(fastify: FastifyInstance) {
             code: { type: 'string' },
             details: { type: 'object' }
           }
+        }
+      }
+    },
+    handler: async (request, reply) => {
+      return authController.register(request as FastifyRequest<{ Body: RegisterDto }>, reply);
+    },
+  });
+
+  fastify.route({
+    method: 'POST',
+    url: '/login',
+    schema: {
+      description: 'Login with email and password',
+      tags: ['auth'],
+      body: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 6 }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            accessToken: { type: 'string' },
+            refreshToken: { type: 'string' },
+            user: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                name: { type: 'string' },
+                email: { type: 'string', format: 'email' }
+              }
+            }
+          }
         },
-        500: {
+        401: {
           type: 'object',
           properties: {
             error: { type: 'string' },
@@ -109,12 +95,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
         }
       }
     },
-    handler: authController.register.bind(authController),
+    handler: authController.login.bind(authController),
   });
 
   fastify.route({
     method: 'GET',
-    url: '/auth/me',
+    url: '/me',
     schema: {
       description: 'Get current user information',
       tags: ['auth'],
@@ -130,14 +116,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
           }
         },
         401: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
-          }
-        },
-        500: {
           type: 'object',
           properties: {
             error: { type: 'string' },
@@ -184,12 +162,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
           properties: {
             error: { type: 'string' }
           }
-        },
-        400: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
         }
       }
     },
@@ -217,12 +189,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
           }
         },
         400: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        500: {
           type: 'object',
           properties: {
             error: { type: 'string' }
@@ -258,18 +224,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
           properties: {
             error: { type: 'string' }
           }
-        },
-        404: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
         }
       }
     },
@@ -297,12 +251,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
           }
         },
         400: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        500: {
           type: 'object',
           properties: {
             error: { type: 'string' }
@@ -335,18 +283,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
           }
         },
         400: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        404: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        500: {
           type: 'object',
           properties: {
             error: { type: 'string' }

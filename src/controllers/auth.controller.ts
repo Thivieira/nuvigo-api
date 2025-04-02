@@ -32,7 +32,11 @@ export class AuthController extends BaseController {
     try {
       const { email, password } = request.body;
       const result = await this.authService.login({ email, password });
-      return this.sendSuccess(reply, result);
+      return this.sendSuccess(reply, {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: result.user
+      });
     } catch (error) {
       if (error instanceof Error && error.message === 'Invalid credentials') {
         return this.sendError(reply, {

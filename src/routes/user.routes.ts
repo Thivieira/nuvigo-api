@@ -8,7 +8,7 @@ const userController = new UserController(userService);
 export default async function userRoutes(fastify: FastifyInstance) {
   fastify.route({
     method: 'POST',
-    url: '/users',
+    url: '/',
     schema: {
       description: 'Create a new user',
       tags: ['user'],
@@ -55,7 +55,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
 
   fastify.route({
     method: 'GET',
-    url: '/users',
+    url: '/',
     schema: {
       description: 'Get all users',
       tags: ['user'],
@@ -88,7 +88,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
 
   fastify.route({
     method: 'GET',
-    url: '/users/:id',
+    url: '/:id',
     schema: {
       description: 'Get user by ID',
       tags: ['user'],
@@ -133,7 +133,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
 
   fastify.route({
     method: 'PUT',
-    url: '/users/:id',
+    url: '/:id',
     schema: {
       description: 'Update user by ID',
       tags: ['user'],
@@ -186,7 +186,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
 
   fastify.route({
     method: 'DELETE',
-    url: '/users/:id',
+    url: '/:id',
     schema: {
       description: 'Delete user by ID',
       tags: ['user'],

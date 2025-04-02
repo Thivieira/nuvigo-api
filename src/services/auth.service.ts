@@ -1,11 +1,9 @@
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { RegisterDto, LoginDto, AuthResponse } from '@/types/auth';
 import { Prisma } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import { TokenService } from './token.service';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export class AuthService {
   constructor(private fastify: FastifyInstance) { }

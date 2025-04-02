@@ -5,13 +5,27 @@ import { ErrorResponseSchema, PaginationQuerySchema } from './common';
 
 // API Response Types
 export const WeatherConditionSchema = z.object({
-  temperature: z.number(),
+  cloudBase: z.number().nullable(),
+  cloudCeiling: z.number().nullable(),
+  cloudCover: z.number(),
+  dewPoint: z.number(),
+  freezingRainIntensity: z.number(),
   humidity: z.number(),
-  windSpeed: z.number(),
-  windDirection: z.number(),
-  precipitation: z.number(),
+  precipitationProbability: z.number(),
+  pressureSeaLevel: z.number(),
   pressureSurfaceLevel: z.number(),
+  rainIntensity: z.number(),
+  sleetIntensity: z.number(),
+  snowIntensity: z.number(),
+  temperature: z.number(),
+  temperatureApparent: z.number(),
+  uvHealthConcern: z.number(),
   uvIndex: z.number(),
+  visibility: z.number(),
+  weatherCode: z.number(),
+  windDirection: z.number(),
+  windGust: z.number(),
+  windSpeed: z.number(),
 }).describe('Weather conditions for a specific location');
 
 export const LocationSchema = z.object({

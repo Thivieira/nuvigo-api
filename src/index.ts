@@ -18,10 +18,11 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.send({ status: 'ok' });
 });
-app.register(authRoutes, { prefix: '/api/auth' });
-app.register(userRoutes, { prefix: '/api' });
-app.register(chatRoutes, { prefix: '/api/chat' });
-app.register(weatherRoutes, { prefix: '/api/weather' });
+
+app.register(authRoutes, { prefix: '/auth' });
+app.register(userRoutes, { prefix: '/user' });
+app.register(chatRoutes, { prefix: '/chat' });
+app.register(weatherRoutes, { prefix: '/weather' });
 
 const start = async () => {
   try {

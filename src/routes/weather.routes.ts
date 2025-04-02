@@ -15,7 +15,7 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
     Querystring: WeatherQuery;
   }>({
     method: 'GET',
-    url: '/weather',
+    url: '/',
     schema: {
       description: 'Get weather information by location',
       tags: ['weather'],
