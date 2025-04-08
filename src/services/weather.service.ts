@@ -1,8 +1,8 @@
 import { NotFoundException } from '@/exceptions'
-import dayjs, { getTimeOfDay } from '@/lib/dayjs';
+import dayjs, { getTimeOfDay, TIMEZONE } from '@/lib/dayjs';
 import { createOpenAIResponse } from '@/utils/openAI.utils';
-import { getPromptFromLanguage } from '@/utils/language.utils';
-import { getWeatherDescription } from '@/utils/weather.utils';
+import { getPromptFromLanguage, PromptParams, analyzeWeatherData } from '@/utils/language.utils';
+import { getWeatherDescription, formatWeatherDataForResponse } from '@/utils/weather.utils';
 import { env } from '@/env';
 
 interface TimelineRequest {
@@ -14,6 +14,8 @@ interface TimelineRequest {
   timesteps: string[];
   startTime: string;
   endTime: string;
+  units?: string;
+  timezone?: string;
 }
 
 interface TimelineResponse {
@@ -99,13 +101,6 @@ const WEATHER_CODE_MAP: Record<number, number> = {
   6: 1005, // Thunderstorm
 };
 
-const TIME_OF_DAY_RANGES = {
-  morning: { start: 8, end: 11 },
-  afternoon: { start: 12, end: 17 },
-  evening: { start: 18, end: 21 },
-  night: { start: 22, end: 5 }
-};
-
 const DEFAULT_FIELDS = [
   'temperature',
   'humidity',
@@ -129,262 +124,243 @@ function formatLocationParam(location: string | Location): string {
   throw new NotFoundException('Invalid location format provided.');
 }
 
-function validateTimeRange(startTime: string, endTime: string): { startTime: string; endTime: string } {
-  const now = dayjs();
-  const start = startTime === 'now' ? now : dayjs(startTime);
-  let end = endTime === 'now' ? now : dayjs(endTime);
-
-  // Validate that the dates are valid
-  if (!start.isValid() || !end.isValid()) {
-    throw new NotFoundException('Invalid time format provided. Please use ISO 8601 format or "now".');
-  }
-
-  // Limit end time to 5 days from now
-  const maxEndTime = now.add(5, 'days');
-  if (end.isAfter(maxEndTime)) {
-    end = maxEndTime;
-  }
-
-  // Set start time to now if it's in the past
-  if (start.isBefore(now)) {
-    return {
-      startTime: now.toISOString(),
-      endTime: end.toISOString()
-    };
-  }
-
-  return {
-    startTime: start.toISOString(),
-    endTime: end.toISOString()
-  };
-}
-
-function createQueryAnalysisPrompt(query: string, currentTime: string): string {
-  return `Given the following weather query: "${query}"
-  Current time: ${currentTime}
-  
-  Please analyze the query and return a JSON object with:
-  1. targetDay: the day of the week (0-6, where 0 is Sunday)
-  2. targetHour: the hour of the day (0-23)
-  3. targetDate: the specific date in YYYY-MM-DD format
-  4. explanation: a brief explanation of how you interpreted the query
-  
-  Important rules:
-  - The target date must be within 5 days from the current time
-  - For relative days (e.g., "tomorrow", "next Friday"), calculate the actual date
-  - For times of day:
-    * "morning" = 8-11
-    * "afternoon" = 12-17
-    * "evening" = 18-21
-    * "night" = 22-5
-  
-  Example responses:
-  {
-    "targetDay": 5,
-    "targetHour": 14,
-    "targetDate": "2025-04-04",
-    "explanation": "User asked about Friday afternoon, which is day 5 and typically around 2 PM"
-  }
-  or
-  {
-    "targetDay": 1,
-    "targetHour": 9,
-    "targetDate": "2025-04-02",
-    "explanation": "User asked about tomorrow morning, which is Tuesday at 9 AM"
-  }`;
-}
-
-function findMatchingInterval(intervals: any[], targetDate: string, targetHour: number): any {
-  return intervals.find(interval => {
-    const intervalTime = dayjs(interval.startTime);
-    const intervalDate = intervalTime.format('YYYY-MM-DD');
-    const intervalHour = intervalTime.hour();
-
-    return intervalDate === targetDate && Math.abs(intervalHour - targetHour) <= 2;
-  });
-}
-
-function createConditionObject(values: any): any {
-  return {
-    cloudBase: values.cloudBase,
-    cloudCeiling: values.cloudCeiling,
-    cloudCover: values.cloudCover,
-    dewPoint: 0,
-    freezingRainIntensity: 0,
-    humidity: values.humidity,
-    precipitationProbability: values.precipitationProbability,
-    pressureSeaLevel: values.pressureSeaLevel,
-    pressureSurfaceLevel: 0,
-    rainIntensity: values.precipitationIntensity,
-    sleetIntensity: 0,
-    snowIntensity: 0,
-    temperature: values.temperature,
-    temperatureApparent: values.temperatureApparent,
-    uvHealthConcern: 0,
-    uvIndex: 0,
-    visibility: values.visibility,
-    weatherCode: WEATHER_CODE_MAP[values.schuurClassification] || 1000,
-    windDirection: values.windDirection,
-    windGust: values.windGust,
-    windSpeed: values.windSpeed,
-  };
-}
-
 export class WeatherService {
-  async getWeather(query: WeatherQuery): Promise<WeatherResponse> {
-    const request: TimelineRequest = {
-      location: query.location as string | { type: 'Point'; coordinates: [number, number] },
-      fields: DEFAULT_FIELDS,
-      timesteps: ['current'],
-      startTime: 'now',
-      endTime: dayjs().add(1, 'hour').toISOString()
-    };
-
-    return this.getFlexibleWeather(request, 'current weather');
-  }
-
-  async getTimelineWeather(request: TimelineRequest): Promise<WeatherResponse> {
-    // Convert "now" to ISO string if present
-    const startTime = request.startTime === 'now' ? dayjs().toISOString() : request.startTime;
-    const endTime = request.endTime === 'now' ? dayjs().toISOString() : request.endTime;
-
-    const query = `weather from ${dayjs(startTime).format('dddd, HH:mm')} to ${dayjs(endTime).format('dddd, HH:mm')}`;
-    return this.getFlexibleWeather(request, query);
-  }
-
-  async getFutureWeather(request: TimelineRequest, queryDate: string): Promise<WeatherResponse> {
-    return this.getFlexibleWeather(request, queryDate);
-  }
-
   async getFlexibleWeather(request: TimelineRequest, query: string): Promise<WeatherResponse> {
-    const queryTime = dayjs();
-    console.log('Query time:', queryTime.format('YYYY-MM-DD HH:mm:ss'));
+    try {
+      const queryTime = dayjs();
+      console.log('Query time:', queryTime.format('YYYY-MM-DD HH:mm:ss'));
 
-    // Validate and adjust time range
-    const { startTime, endTime } = validateTimeRange(request.startTime, request.endTime);
-    request.startTime = startTime;
-    request.endTime = endTime;
+      // Format location parameter
+      const locationParam = formatLocationParam(request.location);
+      console.log('Location parameter:', locationParam);
 
-    // Format location parameter
-    const locationParam = formatLocationParam(request.location);
-    const locationName = typeof request.location === 'string'
-      ? request.location
-      : 'Point' in request.location
-        ? `${request.location.coordinates[1]},${request.location.coordinates[0]}`
-        : 'Unknown Location';
+      // Use AI to analyze the query and determine if it's about a future date
+      const dateAnalysisPrompt = `
+        Analyze the following weather query: "${query}"
+        Current date: ${queryTime.format('YYYY-MM-DD')}
+        Current day of week: ${queryTime.format('dddd')}
+        
+        Determine if this query is about a specific future date or day of the week.
+        If it is, extract the target date in YYYY-MM-DD format.
+        If not, return "current".
+        
+        Return ONLY the date in YYYY-MM-DD format or "current" if it's about current weather.
+        Do not include any explanation or additional text.
+      `;
 
-    // Analyze query using LLM
-    const queryAnalysisPrompt = createQueryAnalysisPrompt(query, queryTime.format('YYYY-MM-DD HH:mm:ss'));
-    console.log('Query Analysis Prompt:', queryAnalysisPrompt);
+      console.log('Sending date analysis prompt to AI');
+      let dateAnalysisResponse;
+      try {
+        console.log('Starting OpenAI API call for date analysis');
+        dateAnalysisResponse = await createOpenAIResponse(dateAnalysisPrompt);
+        console.log('OpenAI API call completed successfully');
+        console.log('Date analysis response:', dateAnalysisResponse);
+      } catch (error: any) {
+        console.error('Error calling OpenAI API for date analysis:', error);
+        // Fallback to current date if AI analysis fails
+        dateAnalysisResponse = 'current';
+        console.log('Using fallback current date due to OpenAI API error');
+      }
 
-    const queryAnalysis = await createOpenAIResponse(queryAnalysisPrompt);
-    console.log('Raw Query Analysis:', queryAnalysis);
+      // Determine if the query is about a future date
+      let isFuture = false;
+      let targetDate = '';
+      let targetTime = '';
+      let targetDayjs = queryTime;
 
-    const cleanResponse = queryAnalysis.replace(/```json\n?|\n?```/g, '').trim();
-    console.log('Cleaned Response:', cleanResponse);
+      // Clean the response to get just the date
+      const cleanDateResponse = dateAnalysisResponse.trim().toLowerCase();
+      console.log('Cleaned date response:', cleanDateResponse);
 
-    const analysis = JSON.parse(cleanResponse);
-    console.log('Parsed Analysis:', analysis);
+      if (cleanDateResponse !== 'current' && cleanDateResponse.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Parse the target date
+        const parsedTargetDate = dayjs(cleanDateResponse);
 
-    // Validate target date
-    const targetDateTime = dayjs(analysis.targetDate);
-    const maxDate = queryTime.add(5, 'days');
-    console.log('Date Validation:', {
-      targetDate: targetDateTime.format('YYYY-MM-DD HH:mm:ss'),
-      maxDate: maxDate.format('YYYY-MM-DD HH:mm:ss'),
-      isWithinLimit: !targetDateTime.isAfter(maxDate)
-    });
+        // Check if the target date is within the allowed range (up to 5 days in the future)
+        const daysDifference = parsedTargetDate.diff(queryTime, 'day');
 
-    if (targetDateTime.isAfter(maxDate)) {
-      throw new NotFoundException('Weather data is only available for up to 5 days in the future.');
-    }
+        if (daysDifference < 0) {
+          console.log(`Target date ${cleanDateResponse} is in the past, using current date instead`);
+          // If the date is in the past, use current date
+          isFuture = false;
+          targetDate = queryTime.format('YYYY-MM-DD');
+          targetDayjs = queryTime;
+          targetTime = queryTime.format('HH:mm');
+        } else if (daysDifference > 5) {
+          console.log(`Target date ${cleanDateResponse} is too far in the future (${daysDifference} days), limiting to 5 days`);
+          // If the date is too far in the future, limit to 5 days
+          isFuture = true;
+          targetDayjs = queryTime.add(5, 'day');
+          targetDate = targetDayjs.format('YYYY-MM-DD');
 
-    // Update request with target date range
-    const targetStart = targetDateTime.startOf('day');
-    const targetEnd = targetDateTime.endOf('day');
-    request.startTime = targetStart.toISOString();
-    request.endTime = targetEnd.toISOString();
+          // Set to noon in the specified timezone
+          targetDayjs = targetDayjs.tz('America/Sao_Paulo').hour(12).minute(0).second(0);
+          targetTime = targetDayjs.format('HH:mm');
+        } else {
+          // Date is within the allowed range
+          isFuture = true;
+          targetDate = cleanDateResponse;
 
-    // Fetch weather data
-    const weatherUrl = `https://api.tomorrow.io/v4/timelines?apikey=${env.TOMORROW_API_KEY}`;
-    const weatherResponse = await fetch(weatherUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...request,
+          // Set to noon in the specified timezone
+          targetDayjs = dayjs(targetDate).tz('America/Sao_Paulo').hour(12).minute(0).second(0);
+          targetTime = targetDayjs.format('HH:mm');
+
+          console.log(`AI detected future date: ${targetDate} (${daysDifference} days ahead)`);
+        }
+      } else {
+        console.log('AI detected current date query');
+      }
+
+      // Create timeline request
+      const timelineRequest: TimelineRequest = {
         location: locationParam,
+        fields: DEFAULT_FIELDS,
+        timesteps: ['1h'],
+        startTime: isFuture ? targetDate : 'now',
         units: 'metric',
-      }),
-    });
+        timezone: 'America/Sao_Paulo',
+        endTime: isFuture ? dayjs(targetDate).add(1, 'day').toISOString() : dayjs().add(5, 'days').toISOString()
+      };
 
-    if (!weatherResponse.ok) {
-      const errorData = await weatherResponse.json();
-      console.error('Tomorrow.io API Error:', errorData);
-      throw new NotFoundException('Weather timeline data not found.');
+      console.log('Timeline request:', timelineRequest);
+
+      // Fetch weather data
+      const weatherUrl = `https://api.tomorrow.io/v4/timelines?apikey=${env.TOMORROW_API_KEY}`;
+      console.log('Making request to Tomorrow.io API');
+
+      let weatherResponse;
+      try {
+        console.log('Starting Tomorrow.io API call');
+        weatherResponse = await fetch(weatherUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(timelineRequest),
+        });
+        console.log('Tomorrow.io API call completed with status:', weatherResponse.status);
+      } catch (error: any) {
+        console.error('Error calling Tomorrow.io API:', error);
+        throw new Error(`Failed to fetch weather data: ${error.message}`);
+      }
+
+      if (!weatherResponse.ok) {
+        const errorData = await weatherResponse.json();
+        console.error('Tomorrow.io API Error:', {
+          status: weatherResponse.status,
+          statusText: weatherResponse.statusText,
+          error: errorData
+        });
+        throw new Error(`Failed to fetch weather data: ${weatherResponse.status} ${weatherResponse.statusText}`);
+      }
+
+      let weatherData;
+      try {
+        console.log('Parsing Tomorrow.io API response');
+        weatherData = await weatherResponse.json();
+        console.log('Weather data received successfully');
+      } catch (error: any) {
+        console.error('Error parsing Tomorrow.io API response:', error);
+        throw new Error(`Failed to parse weather data: ${error.message}`);
+      }
+
+      // Log the full timeline data structure to understand it better
+      console.log('Timeline data structure:', JSON.stringify(weatherData.data.timelines[0], null, 2));
+
+      // Process the weather data
+      const currentInterval = weatherData.data.timelines[0].intervals[0];
+      const values = currentInterval.values;
+      console.log('Raw temperature from API:', values.temperature);
+
+      // Check if we have a valid temperature
+      if (values.temperature === undefined || values.temperature === null) {
+        console.error('Temperature is undefined or null in the API response');
+        throw new Error('Invalid temperature data from API');
+      }
+
+      // Get weather description from weather code
+      const weatherDescription = getWeatherDescription(values.weatherCode || 1000);
+
+      // Determine time of day
+      const hour = dayjs(currentInterval.startTime).hour();
+      let timeOfDay = 'night';
+      if (hour >= 5 && hour < 12) timeOfDay = 'morning';
+      else if (hour >= 12 && hour < 18) timeOfDay = 'afternoon';
+      else if (hour >= 18 && hour < 22) timeOfDay = 'evening';
+
+      // Format weather data for natural language response
+      const formattedWeatherData = formatWeatherDataForResponse(values);
+      console.log('Formatted weather data:', formattedWeatherData);
+
+      // Create condition object
+      const condition = {
+        cloudBase: values.cloudBase,
+        cloudCeiling: values.cloudCeiling,
+        cloudCover: values.cloudCover,
+        dewPoint: values.dewPoint || 0,
+        freezingRainIntensity: values.freezingRainIntensity || 0,
+        humidity: values.humidity,
+        precipitationProbability: values.precipitationProbability,
+        pressureSeaLevel: values.pressureSeaLevel,
+        pressureSurfaceLevel: values.pressureSurfaceLevel || 0,
+        rainIntensity: values.rainIntensity || 0,
+        sleetIntensity: values.sleetIntensity || 0,
+        snowIntensity: values.snowIntensity || 0,
+        temperature: values.temperature,
+        temperatureApparent: values.temperatureApparent,
+        uvHealthConcern: values.uvHealthConcern || 0,
+        uvIndex: values.uvIndex || 0,
+        visibility: values.visibility,
+        weatherCode: values.weatherCode || 1000,
+        windDirection: values.windDirection,
+        windGust: values.windGust,
+        windSpeed: values.windSpeed
+      };
+
+      // Generate natural language response using OpenAI without temperature analysis
+      const promptParams: PromptParams = {
+        name: locationParam,
+        temperature: values.temperature,
+        description: weatherDescription || 'Unknown',
+        condition: {
+          humidity: values.humidity,
+          windSpeed: values.windSpeed,
+          cloudCover: values.cloudCover,
+          precipitationProbability: values.precipitationProbability,
+          uvIndex: values.uvIndex || 0
+        },
+        timeOfDay,
+        isFuture,
+        targetDate: isFuture ? targetDate : dayjs(currentInterval.startTime).format('YYYY-MM-DD'),
+        targetTime: isFuture ? targetTime : dayjs(currentInterval.startTime).format('HH:mm'),
+        precipitationIntensity: values.rainIntensity || 0,
+        query
+      };
+
+      // Get natural language response from AI
+      console.log('Sending prompt params to analyzeWeatherData:', JSON.stringify(promptParams, null, 2));
+      const weatherAnalysis = await analyzeWeatherData(promptParams);
+      console.log('Weather analysis result:', JSON.stringify(weatherAnalysis, null, 2));
+
+      const naturalResponse = weatherAnalysis.naturalResponse;
+
+      // Create response with the raw temperature from the API
+      const response: WeatherResponse = {
+        location: locationParam,
+        temperature: `${values.temperature}°C`,
+        condition: {
+          ...condition,
+          temperature: values.temperature
+        },
+        naturalResponse,
+        currentTime: currentInterval.startTime,
+        queryTime: queryTime.toISOString(),
+        targetTime: isFuture ? targetDayjs.toISOString() : currentInterval.startTime
+      };
+
+      console.log('Final response temperature:', response.temperature);
+      return response;
+    } catch (error) {
+      console.error('Error in getFlexibleWeather:', error);
+      throw error;
     }
-
-    const weatherData = await weatherResponse.json() as TimelineResponse;
-    console.log('API Response:', JSON.stringify(weatherData, null, 2));
-
-    if (!weatherData?.data?.timelines) {
-      throw new NotFoundException('Weather timeline data not found.');
-    }
-
-    // Find matching interval
-    const intervals = weatherData.data.timelines[0].intervals;
-    console.log('Available Intervals:', intervals.map(i => ({
-      time: dayjs(i.startTime).format('YYYY-MM-DD HH:mm:ss'),
-      hour: dayjs(i.startTime).hour(),
-      matchesDate: dayjs(i.startTime).format('YYYY-MM-DD') === analysis.targetDate,
-      matchesHour: Math.abs(dayjs(i.startTime).hour() - analysis.targetHour) <= 2
-    })));
-
-    const targetInterval = findMatchingInterval(intervals, analysis.targetDate, analysis.targetHour);
-
-    if (!targetInterval) {
-      console.log('No matching interval found for:', {
-        targetDate: analysis.targetDate,
-        targetHour: analysis.targetHour,
-        availableDates: intervals.map(i => dayjs(i.startTime).format('YYYY-MM-DD')),
-        availableHours: intervals.map(i => dayjs(i.startTime).hour())
-      });
-      throw new NotFoundException('Weather data not found for the specified time.');
-    }
-
-    // Process weather data
-    const futureTime = dayjs(targetInterval.startTime);
-    const timeOfDay = getTimeOfDay(futureTime.hour());
-    const condition = createConditionObject(targetInterval.values);
-
-    // Generate natural language response
-    const prompt = getPromptFromLanguage('pt', {
-      name: locationName,
-      temperature: targetInterval.values.temperature,
-      description: getWeatherDescription(condition.weatherCode),
-      condition: {
-        humidity: targetInterval.values.humidity,
-        windSpeed: targetInterval.values.windSpeed,
-        cloudCover: targetInterval.values.cloudCover,
-        precipitationProbability: targetInterval.values.precipitationProbability,
-        uvIndex: 0,
-      },
-      timeOfDay,
-      isFuture: true,
-      targetDate: analysis.targetDate,
-      targetTime: futureTime.format('HH:mm')
-    });
-
-    const naturalResponse = await createOpenAIResponse(prompt);
-    console.log('Natural response:', naturalResponse);
-
-    return {
-      location: `${locationName}, Brasil`,
-      temperature: `${Math.round(targetInterval.values.temperature)}°C`,
-      condition,
-      naturalResponse,
-      currentTime: futureTime.format('HH:mm'),
-      queryTime: queryTime.format('YYYY-MM-DD HH:mm:ss'),
-      targetTime: futureTime.format('YYYY-MM-DD HH:mm:ss'),
-    };
   }
 }

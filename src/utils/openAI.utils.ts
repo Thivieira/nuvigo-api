@@ -6,13 +6,19 @@ const openai = new OpenAI({
 });
 
 const createOpenAIResponse = async (prompt: string): Promise<string> => {
+  console.log('Sending prompt to OpenAI API');
+
   const gptResponse = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
-    max_tokens: 100,
+    max_tokens: 500,
   });
 
-  return gptResponse.choices[0].message?.content?.trim() || '';
+  console.log('Received response from OpenAI API');
+  const response = gptResponse.choices[0].message?.content?.trim() || '';
+  console.log('OpenAI response content:', response);
+
+  return response;
 };
 
 export { createOpenAIResponse };

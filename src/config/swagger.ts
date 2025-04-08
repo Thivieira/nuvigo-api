@@ -31,7 +31,6 @@ export const swaggerOptions: SwaggerOptions = {
 export const swaggerUiOptions: FastifySwaggerUiOptions = {
   routePrefix: '/documentation',
   uiConfig: {
-    docExpansion: 'full',
     deepLinking: false,
     displayRequestDuration: true,
     filter: true

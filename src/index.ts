@@ -6,7 +6,16 @@ import authRoutes from './routes/auth.routes';
 import registerPlugins from './plugins';
 
 const app = Fastify({
-  logger: true
+  logger: {
+    level: 'debug',
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        translateTime: 'HH:MM:ss Z',
+        ignore: 'pid,hostname',
+      },
+    },
+  }
 });
 
 registerPlugins(app);
@@ -29,6 +38,10 @@ const start = async () => {
     await app.listen({ port: 3333, host: '0.0.0.0' });
     console.log('Server is running on http://localhost:3333');
     console.log('Documentation is running on http://localhost:3333/documentation');
+
+    // Log all registered routes
+    console.log('\nRegistered Routes:');
+    app.printRoutes();
   } catch (err) {
     app.log.error(err);
     process.exit(1);

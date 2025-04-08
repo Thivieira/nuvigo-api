@@ -97,14 +97,9 @@ export const TimelineRequestSchema = z.object({
 }).describe('Request body for Tomorrow.io timelines API');
 
 export const WeatherQuerySchema = z.object({
-  location: z.union([
-    z.string(),
-    z.object({
-      type: z.literal('Point'),
-      coordinates: z.tuple([z.number(), z.number()]),
-    })
-  ]),
+  location: z.string().min(3), // it will come like this: "-22.9255, -43.1784" or "belo horizonte"
   language: z.string().default('en'),
+  query: z.string().min(3),
 }).describe('Query parameters for weather endpoint');
 
 // Type exports
