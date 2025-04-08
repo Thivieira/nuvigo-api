@@ -13,12 +13,11 @@ const weatherController = new WeatherController(weatherService, chatService);
 export default async function weatherRoutes(fastify: FastifyInstance) {
   console.log('Registering weather routes');
 
-  // Register the flexible weather endpoint
   fastify.route<{
     Querystring: WeatherQuery;
   }>({
     method: 'GET',
-    url: '/flexible',
+    url: '/',
     schema: {
       description: 'Get weather information using natural language query',
       tags: ['weather'],
@@ -65,7 +64,6 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
         });
       }
 
-
       try {
         const result = await weatherController.getFlexibleWeather(request, reply);
         console.log('Weather request completed successfully');
@@ -76,14 +74,4 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
       }
     },
   });
-
-  // Register a test endpoint without authentication
-  fastify.get('/test', async (request, reply) => {
-    console.log('Test endpoint called');
-    return { status: 'ok', message: 'Weather routes are working' };
-  });
-
-  console.log('Weather routes registered with endpoints:');
-  console.log('- GET /weather/flexible');
-  console.log('- GET /weather/test');
 }

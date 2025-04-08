@@ -4,7 +4,6 @@ import { FastifyInstance } from 'fastify';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { swaggerOptions, swaggerUiOptions } from './config/swagger';
-import { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 export default async function registerPlugins(app: FastifyInstance) {
   // Register JWT plugin
