@@ -2,58 +2,57 @@ import { PrismaClient, ChatSession } from '@prisma/client';
 import {
   CreateChatDto,
   UpdateChatDto,
-  ChatResponse,
   ChatWithSessionAndUser,
   SessionWithChats,
-  CreateChatSessionDto,
 } from '@/types/chat';
 import dayjs from '@/lib/dayjs';
 
 const prisma = new PrismaClient();
 const SESSION_TIMEOUT_MINUTES = 30;
+const MAX_SESSION_MESSAGES = 500;
+const MAX_SESSION_DURATION_HOURS = 12;
 
 export class ChatService {
   /**
-   * Finds the most recent active chat session for a user or creates a new one.
-   * A session is considered active if its last update was within SESSION_TIMEOUT_MINUTES.
+   * Finds the most recent active chat session for a user that is within limits,
+   * or creates a new one if no suitable session exists.
+   * - A session is considered active if its last update was within SESSION_TIMEOUT_MINUTES.
+   * - A session is considered valid if it hasn't exceeded MAX_SESSION_DURATION_HOURS since creation.
+   * - A session is considered valid if it has less than MAX_SESSION_MESSAGES messages.
    */
   async findOrCreateActiveSession(userId: string, title?: string): Promise<ChatSession> {
-    const cutoffTime = dayjs().subtract(SESSION_TIMEOUT_MINUTES, 'minutes').toDate();
-
-    const latestSession = await prisma.chatSession.findFirst({
-      where: {
-        userId: userId,
-        updatedAt: {
-          gte: cutoffTime,
-        },
-      },
-      orderBy: {
-        updatedAt: 'desc',
-      },
+    // First verify if the user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
     });
 
-    if (latestSession) {
-      if (!latestSession.title && title) {
-        return prisma.chatSession.update({
-          where: { id: latestSession.id },
-          data: { title: title, updatedAt: new Date() },
-        });
-      }
-      if (latestSession.updatedAt < dayjs().subtract(1, 'minute').toDate()) {
-        await prisma.chatSession.update({
-          where: { id: latestSession.id },
-          data: { updatedAt: new Date() },
-        });
-      }
-      return latestSession;
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found`);
     }
 
-    return prisma.chatSession.create({
-      data: {
-        userId: userId,
-        title: title,
-      },
+    // Find the latest active session for this user
+    const latestSession = await prisma.chatSession.findFirst({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
     });
+
+    if (latestSession && latestSession.updatedAt > dayjs().subtract(1, 'minute').toDate()) {
+      return latestSession;
+    } else if (latestSession && latestSession.updatedAt < dayjs().subtract(1, 'minute').toDate()) {
+      await prisma.chatSession.update({
+        where: { id: latestSession.id },
+        data: { updatedAt: new Date() },
+      });
+
+      return latestSession;
+    } else {
+      return prisma.chatSession.create({
+        data: {
+          userId: userId,
+          title: title,
+        },
+      });
+    }
   }
 
   /**

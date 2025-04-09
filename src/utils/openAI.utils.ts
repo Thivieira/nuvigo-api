@@ -5,12 +5,14 @@ const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
 });
 
-const createOpenAIResponse = async (prompt: string): Promise<string> => {
-  console.log('Sending prompt to OpenAI API');
+const createOpenAIResponse = async (
+  messages: OpenAI.Chat.ChatCompletionMessageParam[]
+): Promise<string> => {
+  console.log('Sending messages to OpenAI API');
 
   const gptResponse = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
+    messages: messages,
     max_tokens: 500,
   });
 

@@ -6,6 +6,7 @@ import { WeatherQuery } from '@/types/weather';
 import { ErrorResponse } from '@/types/common';
 import { JWTPayload } from '@/types/auth';
 import { getWeatherDescription } from '@/utils/weather.utils';
+import { CreateChatDto } from '@/types/chat';
 
 export class WeatherController extends BaseController {
   constructor(
@@ -38,7 +39,6 @@ export class WeatherController extends BaseController {
       const { location, query, language } = request.query;
       const userId = request.user.userId; // Extract userId
 
-      // Define the request for the weather service
       const weatherServiceRequest = {
         location: this.prepareLocation(location),
         timesteps: ['1h'],
@@ -61,52 +61,80 @@ export class WeatherController extends BaseController {
           'windGust',
           'temperatureApparent',
           'weatherCode',
+          'dewPoint',
+          'freezingRainIntensity',
+          'sleetIntensity',
+          'snowIntensity',
+          'uvHealthConcern',
+          'pressureSurfaceLevel'
         ],
         units: 'metric',
         timezone: 'America/Sao_Paulo'
       };
 
-      // Fetch weather data
-      const weatherData = await this.weatherService.getFlexibleWeather(weatherServiceRequest, query);
+      // Fetch weather data and get context-aware response + session ID
+      const { weatherData, sessionId } = await this.weatherService.getFlexibleWeather(
+        weatherServiceRequest,
+        query,
+        this.chatService, // Pass ChatService instance
+        userId // Pass userId
+      );
 
-      // Determine the title for the session (e.g., the user's initial query)
-      const sessionTitle = `Weather in ${weatherData.location} - ${query.substring(0, 50)}${query.length > 50 ? '...' : ''}`;
-
-      // Find or create an active chat session for the user
-      const session = await this.chatService.findOrCreateActiveSession(userId, sessionTitle);
-
-      // Prepare chat data with the session ID
-      const chatData = {
-        chatSessionId: session.id, // Use the obtained session ID
-        location: weatherData.location,
-        temperature: weatherData.temperature,
-        condition: getWeatherDescription(weatherData.condition.weatherCode),
-        naturalResponse: weatherData.naturalResponse,
+      // Prepare chat data
+      const chatData: CreateChatDto = {
+        chatSessionId: sessionId,
+        userId,
+        message: query,
+        response: weatherData.naturalResponse,
+        metadata: {
+          location,
+          temperature: weatherData.condition.temperature.toString(),
+          condition: getWeatherDescription(weatherData.condition.weatherCode),
+          naturalResponse: weatherData.naturalResponse,
+          weatherData: {
+            temperature: weatherData.temperature,
+            humidity: weatherData.condition.humidity,
+            windSpeed: weatherData.condition.windSpeed,
+            windDirection: weatherData.condition.windDirection,
+            precipitation: weatherData.condition.precipitationProbability,
+            pressure: weatherData.condition.pressureSeaLevel,
+            visibility: weatherData.condition.visibility,
+            cloudCover: weatherData.condition.cloudCover,
+            uvIndex: weatherData.condition.uvIndex,
+            dewPoint: weatherData.condition.dewPoint,
+            freezingRainIntensity: weatherData.condition.freezingRainIntensity,
+            sleetIntensity: weatherData.condition.sleetIntensity,
+            snowIntensity: weatherData.condition.snowIntensity,
+            uvHealthConcern: weatherData.condition.uvHealthConcern,
+            pressureSurfaceLevel: weatherData.condition.pressureSurfaceLevel,
+          },
+        },
       };
 
       try {
-        // Save the chat message to the determined session
+        // Save the chat message (user query implicitly represented, AI response explicitly saved)
         await this.chatService.create(chatData);
-        console.log(`Chat entry saved successfully to session ${session.id} for user ${userId}`);
+        console.log(`Chat entry saved successfully to session ${sessionId} for user ${userId}`);
       } catch (chatError: any) {
-        console.error('Failed to save chat entry:', chatError);
+        // Log error but don't fail the main request if chat logging fails
+        console.error(`Failed to save chat entry to session ${sessionId}:`, chatError);
       }
 
-      // Return the original weather data
+      // Return the weather data (including the context-aware naturalResponse)
       return this.sendSuccess(reply, weatherData);
 
     } catch (error: any) {
-      if (error instanceof Error && (error.message.includes('Weather data not found') || error.message.includes('Invalid location'))) {
+      // Keep existing error handling
+      if (error instanceof Error && (error.message.includes('Weather data not found') || error.message.includes('Invalid location') || error.message.includes('Invalid temperature data'))) {
         const errorResponse: ErrorResponse = {
-          error: 'Location not found',
+          error: 'Location or Weather Data Error',
           code: 'NOT_FOUND',
-          details: { message: 'The specified location could not be found' },
+          details: { message: error.message },
         };
         return this.sendError(reply, errorResponse, 404);
       }
 
-      console.error('Error in getFlexibleWeather:', error);
-
+      console.error('Error in getFlexibleWeather Controller:', error);
       return this.sendError(reply, this.handleError(error));
     }
   }

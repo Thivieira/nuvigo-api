@@ -1,5 +1,8 @@
 import dayjs from 'dayjs';
+import { Chat, ChatSession } from '@prisma/client';
 import { createOpenAIResponse } from './openAI.utils';
+import { ChatService } from '@/services/chat.service';
+import { OpenAI } from 'openai';
 
 export interface PromptParams {
   name: string;
@@ -24,109 +27,170 @@ export interface PromptParams {
 export interface WeatherAnalysis {
   naturalResponse: string;
   analyzedTemperature?: number;
+  sessionId: string;
+  dateAnalysis?: string;
+}
+
+async function buildMessagesWithHistory(
+  params: PromptParams,
+  history: Chat[],
+  language: string
+): Promise<OpenAI.Chat.ChatCompletionMessageParam[]> {
+  const { name, temperature, description, condition, timeOfDay, isFuture, targetDate, targetTime, precipitationIntensity, query, explanation } = params;
+
+  const systemMessage: OpenAI.Chat.ChatCompletionSystemMessageParam = {
+    role: 'system',
+    content: `You are Nuvigo, an AI weather assistant. Your language for the response must be ${language}. You provide helpful, friendly, and conversational responses about weather conditions. When users ask about weather in a specific location, use the getWeather tool to fetch accurate data. Follow these instructions carefully:
+      1. Respond directly to the question asked clearly and objectively.
+      2. Maintain a professional but accessible tone.
+      3. Avoid mentioning specific technical numbers (like exact percentages) unless essential.
+      4. For questions about rain:
+         - Probability 0%: No rain.
+         - Probability 1-30%: Unlikely to rain.
+         - Probability 31-70%: Might rain.
+         - Probability 71-99%: Probably going to rain.
+         - Probability 100%: Definitely going to rain.
+      5. Use natural terms:
+         - Instead of "wind speed 1.4 km/h", say "light wind" or "little wind".
+         - Instead of "humidity 75%", say "moderate humidity" or "humid air".
+         - Instead of "cloud cover 69%", say "partly cloudy" or "some clouds".
+      6. Be concise and direct.
+      7. Maintain a neutral, informative tone.
+      8. If the question is about rain, start the response with rain info.
+      9. If the question is ambiguous, explain your interpretation.
+      10. For general weather questions, provide a brief summary.
+
+      Current Weather Data for ${name}:
+      - Temperature: ${temperature}°C
+      - Condition: ${description}
+      - Humidity: ${condition.humidity}%
+      - Wind Speed: ${condition.windSpeed} km/h
+      - Cloud Cover: ${condition.cloudCover}%
+      - Precipitation Probability: ${condition.precipitationProbability}%
+      - Precipitation Intensity: ${precipitationIntensity || 0} mm/h
+      - UV Index: ${condition.uvIndex}
+      - Time of Day: ${timeOfDay}
+      ${isFuture ? `- Target Date: ${targetDate}` : ''}
+      ${isFuture ? `- Target Time: ${targetTime}` : ''}
+      ${explanation ? `- Query Interpretation: ${explanation}` : ''}
+      Present the relevant data naturally based on the user's query.`
+  };
+
+  const historyMessages: OpenAI.Chat.ChatCompletionMessageParam[] = history.flatMap((chat): OpenAI.Chat.ChatCompletionMessageParam[] => [
+    { role: 'user', content: chat.message },
+    { role: 'assistant', content: chat.response },
+  ]);
+
+  const newUserMessage: OpenAI.Chat.ChatCompletionUserMessageParam = {
+    role: 'user',
+    content: params.query
+  };
+
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    systemMessage,
+    ...historyMessages,
+    newUserMessage,
+  ];
+
+  console.log('Generated messages for AI:', JSON.stringify(messages, null, 2));
+  return messages;
 }
 
 export async function detectLanguage(query: string): Promise<string> {
   const prompt = `Detect the language of the following query and return ONLY the language code (e.g., 'pt', 'en', 'es', 'fr'): "${query}"`;
-  const response = await createOpenAIResponse(prompt);
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'user', content: prompt }];
+  const response = await createOpenAIResponse(messages);
   return response.trim().toLowerCase();
 }
 
-export async function getPromptFromLanguage(params: PromptParams): Promise<string> {
-  const { name, temperature, description, condition, timeOfDay, isFuture, targetDate, targetTime, precipitationIntensity, query, explanation } = params;
-  console.log('getPromptFromLanguage called with temperature:', temperature);
-
-  // Detect the language of the query
-  const language = await detectLanguage(query);
-  console.log('Detected language:', language);
-
-  const weatherData = `
-    - Temperatura: ${temperature}°C
-    - Condição: ${description}
-    - Umidade: ${condition.humidity}%
-    - Velocidade do vento: ${condition.windSpeed} km/h
-    - Cobertura de nuvens: ${condition.cloudCover}%
-    - Probabilidade de chuva: ${condition.precipitationProbability}%
-    - Intensidade da precipitação: ${precipitationIntensity || 0} mm/h
-    - Índice UV: ${condition.uvIndex}
-    - Período do dia: ${timeOfDay}
-    ${isFuture ? `- Data alvo: ${targetDate}` : ''}
-    ${isFuture ? `- Horário alvo: ${targetTime}` : ''}
-    ${explanation ? `- Interpretação da pergunta: ${explanation}` : ''}`;
-
-  const instructions = `
-    1. Responda diretamente à pergunta feita de forma clara e objetiva
-    2. Mantenha um tom profissional mas acessível
-    3. Evite mencionar números técnicos específicos (como porcentagens exatas) a menos que sejam essenciais
-    4. Para perguntas sobre chuva:
-       - Se a probabilidade for 0%, diga que não vai chover
-       - Se a probabilidade for baixa (1-30%), diga que é improvável chover
-       - Se a probabilidade for média (31-70%), diga que pode chover
-       - Se a probabilidade for alta (71-99%), diga que provavelmente vai chover
-       - Se a probabilidade for 100%, diga que vai chover com certeza
-    5. Use termos mais naturais para descrever o tempo:
-       - Em vez de "velocidade do vento de 1.4 km/h", diga "vento leve" ou "pouco vento"
-       - Em vez de "umidade de 75%", diga "umidade moderada" ou "ar úmido"
-       - Em vez de "cobertura de nuvens de 69%", diga "parcialmente nublado" ou "algumas nuvens"
-    6. Seja conciso e direto - não precisa mencionar todos os detalhes técnicos
-    7. Mantenha um tom neutro e informativo
-    8. Se a pergunta for sobre chuva, comece a resposta com a informação sobre chuva
-    9. Se a pergunta não for clara ou for ambígua, explique como você interpretou a pergunta
-    10. Para perguntas sobre o tempo em geral, forneça um resumo breve das condições
+export async function generateChatTitle(query: string): Promise<string> {
+  const titlePrompt = `
+    Generate a short, descriptive title (maximum 50 characters) for a weather chat session based on this user query: "${query}"
     
-    IMPORTANTE: Use os dados reais fornecidos acima, mas apresente-os de forma clara e objetiva.`;
+    The title should be concise and capture the essence of what the user is asking about.
+    Return ONLY the title, with no additional text or explanation.
+  `;
 
-  const languagePrompts: Record<string, { question: string; data: string; instructions: string }> = {
-    pt: {
-      question: 'Analise a seguinte pergunta sobre o clima:',
-      data: 'Condições meteorológicas para',
-      instructions: 'A resposta deve ser em português, com um tom profissional mas acessível.'
-    },
-    en: {
-      question: 'Analyze the following weather question:',
-      data: 'Weather conditions for',
-      instructions: 'The response should be in English, with a professional but accessible tone.'
-    },
-    es: {
-      question: 'Analiza la siguiente pregunta sobre el clima:',
-      data: 'Condiciones meteorológicas para',
-      instructions: 'La respuesta debe estar en español, con un tono profesional pero accesible.'
-    },
-    fr: {
-      question: 'Analysez la question suivante sur la météo:',
-      data: 'Conditions météorologiques pour',
-      instructions: 'La réponse doit être en français, avec un ton professionnel mais accessible.'
-    }
-  };
-
-  const prompt = languagePrompts[language] || languagePrompts.en;
-
-  const finalPrompt = `${prompt.question} "${query}"
-
-    ${prompt.data} ${name}:
-    ${weatherData}
-    
-    Por favor, analise a pergunta e forneça uma resposta apropriada que:
-    ${instructions}
-    
-    ${prompt.instructions}`;
-
-  console.log('Generated prompt:', finalPrompt);
-  return finalPrompt;
+  try {
+    const titleResponse = await createOpenAIResponse([{ role: 'user', content: titlePrompt }]);
+    return titleResponse.trim();
+  } catch (error) {
+    console.error('Error generating chat title:', error);
+    // Fallback to a generic title if AI generation fails
+    return 'Weather Query';
+  }
 }
 
-export async function analyzeWeatherData(params: PromptParams): Promise<WeatherAnalysis> {
-  console.log('Starting weather analysis with params:', JSON.stringify(params, null, 2));
+export async function analyzeWeatherData(
+  params: PromptParams,
+  chatService: ChatService,
+  userId: string
+): Promise<WeatherAnalysis> {
+  console.log('Starting weather analysis with context:', JSON.stringify(params, null, 2));
 
-  const prompt = await getPromptFromLanguage(params);
-  console.log('Generated prompt for weather analysis:', prompt);
+  // Generate a title for the chat session based on the user's query
+  const chatTitle = await generateChatTitle(params.query);
+  console.log('Generated chat title:', chatTitle);
 
-  const response = await createOpenAIResponse(prompt);
-  console.log('Raw AI response:', response);
+  const session = await chatService.findOrCreateActiveSession(userId, chatTitle);
+  const sessionId = session.id;
 
-  // Use the original temperature from the API without any AI analysis
+  const sessionData = await chatService.findSessionById(sessionId);
+  const history: Chat[] = sessionData?.chats ?? [];
+
+  // Analyze the date considering chat history
+  const dateAnalysis = await analyzeDateWithHistory(params.query, history);
+  console.log('Date analysis with history:', dateAnalysis);
+
+  const language = await detectLanguage(params.query);
+  console.log('Detected language:', language);
+
+  const messages = await buildMessagesWithHistory(params, history, language);
+
+  const response = await createOpenAIResponse(messages);
+  console.log('Raw AI response with context:', response);
+
   return {
     naturalResponse: response.trim(),
-    analyzedTemperature: params.temperature
+    analyzedTemperature: params.temperature,
+    sessionId: sessionId,
+    dateAnalysis: dateAnalysis
   };
+}
+
+/**
+ * Analyzes the date mentioned in a query, considering chat history for context
+ */
+export async function analyzeDateWithHistory(query: string, history: Chat[]): Promise<string> {
+  // Format chat history for context
+  const historyContext = history.map(chat => {
+    return `User: ${chat.message}\nAssistant: ${chat.response}`;
+  }).join('\n\n');
+
+  const dateAnalysisPrompt = `
+    Analyze the following weather query and chat history to determine the date the user is asking about.
+    
+    Current query: "${query}"
+    
+    Chat history:
+    ${historyContext}
+    
+    Determine if this query is about a specific future date or day of the week.
+    If the query is ambiguous (like "today", "tomorrow", "this day", etc.), use the chat history to determine the context.
+    If it is, extract the target date in YYYY-MM-DD format.
+    If not, return "current".
+    
+    Return ONLY the date in YYYY-MM-DD format or "current" if it's about current weather.
+    Do not include any explanation or additional text.
+  `;
+
+  try {
+    console.log('Sending date analysis with history prompt to AI');
+    const dateAnalysisResponse = await createOpenAIResponse([{ role: 'user', content: dateAnalysisPrompt }]);
+    console.log('Date analysis with history response:', dateAnalysisResponse);
+    return dateAnalysisResponse.trim();
+  } catch (error) {
+    console.error('Error analyzing date with history:', error);
+    return 'current';
+  }
 }

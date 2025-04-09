@@ -1,9 +1,11 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ChatService } from '@/services/chat.service';
 import { CreateChatDto, UpdateChatDto, CreateChatSessionDto } from '@/types/chat';
-import { Prisma } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { BaseController } from './base.controller';
 import { JWTPayload } from '@/types/auth';
+
+const prisma = new PrismaClient();
 
 export class ChatController extends BaseController {
   constructor(private readonly chatService: ChatService) {
@@ -15,10 +17,43 @@ export class ChatController extends BaseController {
     reply: FastifyReply
   ) {
     try {
-      const chat = await this.chatService.create(request.body);
+      const { chatSessionId, userId, location, temperature, condition, naturalResponse, metadata } = request.body;
+
+      const chat = await prisma.chat.create({
+        data: {
+          chatSessionId,
+          userId,
+          location,
+          temperature,
+          condition,
+          naturalResponse,
+          metadata
+        },
+        include: {
+          chatSession: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
       return this.sendSuccess(reply, chat, 201);
     } catch (error: any) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          return this.sendError(reply, {
+            error: 'Chat message already exists',
+            code: 'CHAT_MESSAGE_EXISTS',
+            details: error.meta
+          }, 409);
+        }
         if (error.code === 'P2003') {
           return this.sendError(reply, {
             error: 'Chat session not found',
@@ -78,7 +113,33 @@ export class ChatController extends BaseController {
     reply: FastifyReply
   ) {
     try {
-      const chat = await this.chatService.updateChat(request.params.chatId, request.body);
+      const { chatId } = request.params;
+      const { location, temperature, condition, naturalResponse, metadata } = request.body;
+
+      const chat = await prisma.chat.update({
+        where: { id: chatId },
+        data: {
+          location,
+          temperature,
+          condition,
+          naturalResponse,
+          metadata
+        },
+        include: {
+          chatSession: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
       return this.sendSuccess(reply, chat);
     } catch (error: any) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {

@@ -4,7 +4,8 @@
     "dev": "NODE_NO_WARNINGS=1 tsx watch src/index.ts",
     "start": "NODE_NO_WARNINGS=1 node dist/index.js",
     "build": "tsc && tsc-alias",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
     "@fastify/jwt": "^9.1.0",

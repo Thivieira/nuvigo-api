@@ -2,10 +2,10 @@ import { Chat, User, ChatSession } from '@prisma/client';
 
 export interface CreateChatDto {
   chatSessionId: string;
-  location: string;
-  temperature: string;
-  condition: string;
-  naturalResponse: string;
+  userId?: string;
+  message: string;
+  response: string;
+  metadata?: Record<string, any>;
 }
 
 export interface UpdateChatDto {
@@ -13,6 +13,7 @@ export interface UpdateChatDto {
   temperature?: string;
   condition?: string;
   naturalResponse?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface ChatResponse extends Omit<Chat, 'userId'> {
