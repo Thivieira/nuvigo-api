@@ -178,7 +178,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
 
     chatInstance.route({
       method: 'POST',
-      url: '/chats',
+      url: '/',
       schema: {
         description: 'Create a new chat message within a session',
         tags: ['chat-message'],
@@ -234,7 +234,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
 
     chatInstance.route({
       method: 'GET',
-      url: '/chats/:chatId',
+      url: '/:chatId',
       schema: {
         description: 'Get a specific chat message by ID',
         tags: ['chat-message'],
@@ -286,7 +286,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
 
     chatInstance.route({
       method: 'PUT',
-      url: '/chats/:chatId',
+      url: '/:chatId',
       schema: {
         description: 'Update a specific chat message by ID',
         tags: ['chat-message'],
@@ -347,7 +347,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
 
     chatInstance.route({
       method: 'DELETE',
-      url: '/chats/:chatId',
+      url: '/:chatId',
       schema: {
         description: 'Delete a specific chat message by ID',
         tags: ['chat-message'],
