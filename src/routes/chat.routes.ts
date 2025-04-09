@@ -1,288 +1,385 @@
 import { FastifyInstance } from 'fastify';
 import { ChatController } from '@/controllers/chat.controller';
 import { ChatService } from '@/services/chat.service';
+import { authenticate } from '@/middleware/auth.middleware';
+import { CreateChatDto, UpdateChatDto } from '@/types/chat';
 
 const chatService = new ChatService();
 const chatController = new ChatController(chatService);
 
+const UserBaseSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    email: { type: 'string', format: 'email' },
+    name: { type: 'string', nullable: true },
+  }
+};
+
+const ChatBaseSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    chatSessionId: { type: 'string', format: 'uuid' },
+    location: { type: 'string' },
+    temperature: { type: 'string' },
+    condition: { type: 'string' },
+    naturalResponse: { type: 'string' },
+    createdAt: { type: 'string', format: 'date-time' },
+    updatedAt: { type: 'string', format: 'date-time' },
+  }
+};
+
+const SessionBaseSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    userId: { type: 'string', format: 'uuid' },
+    title: { type: 'string', nullable: true },
+    createdAt: { type: 'string', format: 'date-time' },
+    updatedAt: { type: 'string', format: 'date-time' },
+  }
+};
+
 export default async function chatRoutes(fastify: FastifyInstance) {
-  fastify.route({
-    method: 'POST',
-    url: '/chats',
-    schema: {
-      description: 'Create a new chat',
-      tags: ['chat'],
-      body: {
-        type: 'object',
-        required: ['userId', 'location', 'temperature', 'condition', 'naturalResponse'],
-        properties: {
-          userId: { type: 'string', format: 'uuid' },
-          location: { type: 'string' },
-          temperature: { type: 'string' },
-          condition: { type: 'string' },
-          naturalResponse: { type: 'string' }
-        }
-      },
-      response: {
-        201: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', format: 'uuid' },
-            userId: { type: 'string', format: 'uuid' },
-            location: { type: 'string' },
-            temperature: { type: 'string' },
-            condition: { type: 'string' },
-            naturalResponse: { type: 'string' },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' }
-          }
-        },
-        400: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
-          }
-        }
-      }
-    },
-    handler: chatController.create.bind(chatController),
-  });
+  fastify.register(async (sessionInstance) => {
+    sessionInstance.addHook('preHandler', authenticate);
 
-  fastify.route({
-    method: 'GET',
-    url: '/chats',
-    schema: {
-      description: 'Get all chats',
-      tags: ['chat'],
-      response: {
-        200: {
-          type: 'array',
-          items: {
+    sessionInstance.route({
+      method: 'GET',
+      url: '/sessions',
+      schema: {
+        description: 'Get all chat sessions for the authenticated user',
+        tags: ['chat-session'],
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: {
+            type: 'array',
+            items: {
+              allOf: [
+                SessionBaseSchema,
+                {
+                  type: 'object',
+                  properties: {
+                    user: UserBaseSchema,
+                    chats: {
+                      type: 'array',
+                      items: ChatBaseSchema
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          500: {
             type: 'object',
             properties: {
-              id: { type: 'string', format: 'uuid' },
-              userId: { type: 'string', format: 'uuid' },
-              location: { type: 'string' },
-              temperature: { type: 'string' },
-              condition: { type: 'string' },
-              naturalResponse: { type: 'string' },
-              createdAt: { type: 'string', format: 'date-time' },
-              updatedAt: { type: 'string', format: 'date-time' }
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
             }
           }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
-          }
-        }
-      }
-    },
-    handler: chatController.findAll.bind(chatController),
-  });
-
-  fastify.route({
-    method: 'GET',
-    url: '/chats/:id',
-    schema: {
-      description: 'Get chat by ID',
-      tags: ['chat'],
-      params: {
-        type: 'object',
-        required: ['id'],
-        properties: {
-          id: { type: 'string', format: 'uuid' }
         }
       },
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', format: 'uuid' },
-            userId: { type: 'string', format: 'uuid' },
-            location: { type: 'string' },
-            temperature: { type: 'string' },
-            condition: { type: 'string' },
-            naturalResponse: { type: 'string' },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' }
-          }
-        },
-        404: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
-          }
-        }
-      }
-    },
-    handler: chatController.findById.bind(chatController),
-  });
+      handler: chatController.findUserSessions.bind(chatController),
+    });
 
-  fastify.route({
-    method: 'GET',
-    url: '/users/:userId/chats',
-    schema: {
-      description: 'Get chats by user ID',
-      tags: ['chat'],
-      params: {
-        type: 'object',
-        required: ['userId'],
-        properties: {
-          userId: { type: 'string', format: 'uuid' }
-        }
-      },
-      response: {
-        200: {
-          type: 'array',
-          items: {
+    sessionInstance.route({
+      method: 'GET',
+      url: '/sessions/:sessionId',
+      schema: {
+        description: 'Get a specific chat session by ID (includes messages)',
+        tags: ['chat-session'],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['sessionId'],
+          properties: {
+            sessionId: { type: 'string', format: 'uuid' }
+          }
+        },
+        response: {
+          200: {
+            allOf: [
+              SessionBaseSchema,
+              {
+                type: 'object',
+                properties: {
+                  user: UserBaseSchema,
+                  chats: {
+                    type: 'array',
+                    items: ChatBaseSchema
+                  }
+                }
+              }
+            ]
+          },
+          404: {
             type: 'object',
             properties: {
-              id: { type: 'string', format: 'uuid' },
-              userId: { type: 'string', format: 'uuid' },
-              location: { type: 'string' },
-              temperature: { type: 'string' },
-              condition: { type: 'string' },
-              naturalResponse: { type: 'string' },
-              createdAt: { type: 'string', format: 'date-time' },
-              updatedAt: { type: 'string', format: 'date-time' }
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          500: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
             }
           }
-        },
-        404: {
+        }
+      },
+      handler: chatController.findSessionById.bind(chatController),
+    });
+
+    sessionInstance.route({
+      method: 'DELETE',
+      url: '/sessions/:sessionId',
+      schema: {
+        description: 'Delete a specific chat session and all its messages',
+        tags: ['chat-session'],
+        security: [{ bearerAuth: [] }],
+        params: {
           type: 'object',
+          required: ['sessionId'],
           properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
+            sessionId: { type: 'string', format: 'uuid' }
           }
         },
-        500: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
+        response: {
+          204: { type: 'null' },
+          404: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          500: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
           }
         }
-      }
-    },
-    handler: chatController.findByUserId.bind(chatController),
+      },
+      handler: chatController.deleteSession.bind(chatController),
+    });
   });
 
-  fastify.route({
-    method: 'PUT',
-    url: '/chats/:id',
-    schema: {
-      description: 'Update chat by ID',
-      tags: ['chat'],
-      params: {
-        type: 'object',
-        required: ['id'],
-        properties: {
-          id: { type: 'string', format: 'uuid' }
-        }
-      },
-      body: {
-        type: 'object',
-        properties: {
-          location: { type: 'string' },
-          temperature: { type: 'string' },
-          condition: { type: 'string' },
-          naturalResponse: { type: 'string' }
-        }
-      },
-      response: {
-        200: {
+  fastify.register(async (chatInstance) => {
+    chatInstance.addHook('preHandler', authenticate);
+
+    chatInstance.route({
+      method: 'POST',
+      url: '/chats',
+      schema: {
+        description: 'Create a new chat message within a session',
+        tags: ['chat-message'],
+        security: [{ bearerAuth: [] }],
+        body: {
           type: 'object',
+          required: ['chatSessionId', 'location', 'temperature', 'condition', 'naturalResponse'],
           properties: {
-            id: { type: 'string', format: 'uuid' },
-            userId: { type: 'string', format: 'uuid' },
+            chatSessionId: { type: 'string', format: 'uuid' },
             location: { type: 'string' },
             temperature: { type: 'string' },
             condition: { type: 'string' },
-            naturalResponse: { type: 'string' },
-            createdAt: { type: 'string', format: 'date-time' },
-            updatedAt: { type: 'string', format: 'date-time' }
+            naturalResponse: { type: 'string' }
           }
         },
-        404: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
+        response: {
+          201: {
+            allOf: [
+              ChatBaseSchema,
+              {
+                type: 'object',
+                properties: {
+                  chatSession: {
+                    allOf: [
+                      SessionBaseSchema,
+                      { properties: { user: UserBaseSchema } }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          404: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          500: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
           }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
-          }
-        }
-      }
-    },
-    handler: chatController.update.bind(chatController),
-  });
-
-  fastify.route({
-    method: 'DELETE',
-    url: '/chats/:id',
-    schema: {
-      description: 'Delete chat by ID',
-      tags: ['chat'],
-      params: {
-        type: 'object',
-        required: ['id'],
-        properties: {
-          id: { type: 'string', format: 'uuid' }
         }
       },
-      response: {
-        204: { type: 'null' },
-        404: {
+      handler: chatController.createChatMessage.bind(chatController),
+    });
+
+    chatInstance.route({
+      method: 'GET',
+      url: '/chats/:chatId',
+      schema: {
+        description: 'Get a specific chat message by ID',
+        tags: ['chat-message'],
+        security: [{ bearerAuth: [] }],
+        params: {
           type: 'object',
+          required: ['chatId'],
           properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
+            chatId: { type: 'string', format: 'uuid' }
           }
         },
-        500: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' },
-            details: { type: 'object' }
+        response: {
+          200: {
+            allOf: [
+              ChatBaseSchema,
+              {
+                type: 'object',
+                properties: {
+                  chatSession: {
+                    allOf: [
+                      SessionBaseSchema,
+                      { properties: { user: UserBaseSchema } }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          404: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          500: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
           }
         }
-      }
-    },
-    handler: chatController.delete.bind(chatController),
+      },
+      handler: chatController.findChatById.bind(chatController),
+    });
+
+    chatInstance.route({
+      method: 'PUT',
+      url: '/chats/:chatId',
+      schema: {
+        description: 'Update a specific chat message by ID',
+        tags: ['chat-message'],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['chatId'],
+          properties: {
+            chatId: { type: 'string', format: 'uuid' }
+          }
+        },
+        body: {
+          type: 'object',
+          properties: {
+            location: { type: 'string' },
+            temperature: { type: 'string' },
+            condition: { type: 'string' },
+            naturalResponse: { type: 'string' }
+          }
+        },
+        response: {
+          200: {
+            allOf: [
+              ChatBaseSchema,
+              {
+                type: 'object',
+                properties: {
+                  chatSession: {
+                    allOf: [
+                      SessionBaseSchema,
+                      { properties: { user: UserBaseSchema } }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          404: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          500: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          }
+        }
+      },
+      handler: chatController.updateChatMessage.bind(chatController),
+    });
+
+    chatInstance.route({
+      method: 'DELETE',
+      url: '/chats/:chatId',
+      schema: {
+        description: 'Delete a specific chat message by ID',
+        tags: ['chat-message'],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['chatId'],
+          properties: {
+            chatId: { type: 'string', format: 'uuid' }
+          }
+        },
+        response: {
+          204: { type: 'null' },
+          404: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          500: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          }
+        }
+      },
+      handler: chatController.deleteChatMessage.bind(chatController),
+    });
   });
 } 

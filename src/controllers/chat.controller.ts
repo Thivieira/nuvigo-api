@@ -1,80 +1,29 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ChatService } from '@/services/chat.service';
-import { CreateChatDto, UpdateChatDto } from '@/types/chat';
+import { CreateChatDto, UpdateChatDto, CreateChatSessionDto } from '@/types/chat';
 import { Prisma } from '@prisma/client';
 import { BaseController } from './base.controller';
+import { JWTPayload } from '@/types/auth';
 
 export class ChatController extends BaseController {
   constructor(private readonly chatService: ChatService) {
     super();
   }
 
-  async create(request: FastifyRequest<{ Body: CreateChatDto }>, reply: FastifyReply) {
-    try {
-      const chat = await this.chatService.create(request.body);
-      return this.sendSuccess(reply, chat, 201);
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2003') {
-          return this.sendError(reply, {
-            error: 'User not found',
-            code: 'USER_NOT_FOUND',
-            details: { userId: request.body.userId }
-          }, 400);
-        }
-      }
-      return this.sendError(reply, this.handleError(error));
-    }
-  }
-
-  async findAll(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const chats = await this.chatService.findAll();
-      return this.sendSuccess(reply, chats);
-    } catch (error) {
-      return this.sendError(reply, this.handleError(error));
-    }
-  }
-
-  async findById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    try {
-      const chat = await this.chatService.findById(request.params.id);
-      if (!chat) {
-        return this.sendError(reply, {
-          error: 'Chat not found',
-          code: 'CHAT_NOT_FOUND',
-          details: { id: request.params.id }
-        }, 404);
-      }
-      return this.sendSuccess(reply, chat);
-    } catch (error) {
-      return this.sendError(reply, this.handleError(error));
-    }
-  }
-
-  async findByUserId(request: FastifyRequest<{ Params: { userId: string } }>, reply: FastifyReply) {
-    try {
-      const chats = await this.chatService.findByUserId(request.params.userId);
-      return this.sendSuccess(reply, chats);
-    } catch (error) {
-      return this.sendError(reply, this.handleError(error));
-    }
-  }
-
-  async update(
-    request: FastifyRequest<{ Params: { id: string }; Body: UpdateChatDto }>,
+  async createChatMessage(
+    request: FastifyRequest<{ Body: CreateChatDto }>,
     reply: FastifyReply
   ) {
     try {
-      const chat = await this.chatService.update(request.params.id, request.body);
-      return this.sendSuccess(reply, chat);
-    } catch (error) {
+      const chat = await this.chatService.create(request.body);
+      return this.sendSuccess(reply, chat, 201);
+    } catch (error: any) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
+        if (error.code === 'P2003') {
           return this.sendError(reply, {
-            error: 'Chat not found',
-            code: 'CHAT_NOT_FOUND',
-            details: { id: request.params.id }
+            error: 'Chat session not found',
+            code: 'CHAT_SESSION_NOT_FOUND',
+            details: { chatSessionId: request.body.chatSessionId }
           }, 404);
         }
       }
@@ -82,17 +31,98 @@ export class ChatController extends BaseController {
     }
   }
 
-  async delete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+  async findUserSessions(request: FastifyRequest & { user: JWTPayload }, reply: FastifyReply) {
     try {
-      await this.chatService.delete(request.params.id);
-      return this.sendSuccess(reply, null, 204);
-    } catch (error) {
+      const userId = request.user.userId;
+      const sessions = await this.chatService.findSessionsByUserId(userId);
+      return this.sendSuccess(reply, sessions);
+    } catch (error: any) {
+      return this.sendError(reply, this.handleError(error));
+    }
+  }
+
+  async findSessionById(request: FastifyRequest<{ Params: { sessionId: string } }>, reply: FastifyReply) {
+    try {
+      const session = await this.chatService.findSessionById(request.params.sessionId);
+      if (!session) {
+        return this.sendError(reply, {
+          error: 'Chat session not found',
+          code: 'CHAT_SESSION_NOT_FOUND',
+          details: { sessionId: request.params.sessionId }
+        }, 404);
+      }
+      return this.sendSuccess(reply, session);
+    } catch (error: any) {
+      return this.sendError(reply, this.handleError(error));
+    }
+  }
+
+  async findChatById(request: FastifyRequest<{ Params: { chatId: string } }>, reply: FastifyReply) {
+    try {
+      const chat = await this.chatService.findChatById(request.params.chatId);
+      if (!chat) {
+        return this.sendError(reply, {
+          error: 'Chat message not found',
+          code: 'CHAT_MESSAGE_NOT_FOUND',
+          details: { chatId: request.params.chatId }
+        }, 404);
+      }
+      return this.sendSuccess(reply, chat);
+    } catch (error: any) {
+      return this.sendError(reply, this.handleError(error));
+    }
+  }
+
+  async updateChatMessage(
+    request: FastifyRequest<{ Params: { chatId: string }; Body: UpdateChatDto }>,
+    reply: FastifyReply
+  ) {
+    try {
+      const chat = await this.chatService.updateChat(request.params.chatId, request.body);
+      return this.sendSuccess(reply, chat);
+    } catch (error: any) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           return this.sendError(reply, {
-            error: 'Chat not found',
-            code: 'CHAT_NOT_FOUND',
-            details: { id: request.params.id }
+            error: 'Chat message not found',
+            code: 'CHAT_MESSAGE_NOT_FOUND',
+            details: { chatId: request.params.chatId }
+          }, 404);
+        }
+      }
+      return this.sendError(reply, this.handleError(error));
+    }
+  }
+
+  async deleteChatMessage(request: FastifyRequest<{ Params: { chatId: string } }>, reply: FastifyReply) {
+    try {
+      await this.chatService.deleteChat(request.params.chatId);
+      return this.sendSuccess(reply, null, 204);
+    } catch (error: any) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          return this.sendError(reply, {
+            error: 'Chat message not found',
+            code: 'CHAT_MESSAGE_NOT_FOUND',
+            details: { chatId: request.params.chatId }
+          }, 404);
+        }
+      }
+      return this.sendError(reply, this.handleError(error));
+    }
+  }
+
+  async deleteSession(request: FastifyRequest<{ Params: { sessionId: string } }>, reply: FastifyReply) {
+    try {
+      await this.chatService.deleteSession(request.params.sessionId);
+      return this.sendSuccess(reply, null, 204);
+    } catch (error: any) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          return this.sendError(reply, {
+            error: 'Chat session not found',
+            code: 'CHAT_SESSION_NOT_FOUND',
+            details: { sessionId: request.params.sessionId }
           }, 404);
         }
       }

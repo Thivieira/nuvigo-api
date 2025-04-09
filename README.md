@@ -9,7 +9,7 @@ A modern, type-safe Fastify API that provides weather information with AI-powere
 - 🔐 JWT-based authentication with refresh tokens
 - 📧 Email verification system
 - 🔑 Password reset functionality
-- 💬 Chat history tracking
+- 💬 Chat history tracking with time-based sessions
 - 📝 Swagger API documentation
 - 🔍 Type-safe API with Zod validation
 - 🗄️ PostgreSQL database with Prisma ORM
@@ -112,19 +112,23 @@ You can access the documentation at:
 
 ### Weather
 
-- `GET /weather` - Get weather information for a location
+- `GET /weather` - Get weather information for a location and saves the query/response to the active chat session
   - Query parameters:
     - `location`: Location name or coordinates
     - `language`: Response language (en/pt)
 
-### Chat
+### Chat Sessions
 
-- `POST /chats` - Create a new chat entry
-- `GET /chats` - Get all chats
-- `GET /chats/:id` - Get chat by ID
-- `GET /chats/user/:userId` - Get chats by user ID
-- `PUT /chats/:id` - Update chat
-- `DELETE /chats/:id` - Delete chat
+- `GET /sessions` - Get all chat sessions for the authenticated user
+- `GET /sessions/:sessionId` - Get a specific chat session by ID (includes messages)
+- `DELETE /sessions/:sessionId` - Delete a specific chat session and all its messages
+
+### Chat Messages
+
+- `POST /chats` - Create a new chat message within a session (requires `chatSessionId`)
+- `GET /chats/:chatId` - Get a specific chat message by ID
+- `PUT /chats/:chatId` - Update a specific chat message
+- `DELETE /chats/:chatId` - Delete a specific chat message
 
 ## Database Schema
 
@@ -135,11 +139,18 @@ You can access the documentation at:
 - Name (optional)
 - Email verification status
 - Timestamps
-- Relations to chats and tokens
+- Relations to chat sessions and tokens
+
+### ChatSession
+- UUID primary key
+- User relation
+- Optional title (e.g., generated from first query)
+- Timestamps (createdAt, updatedAt - used for session activity)
+- Relation to chats within the session
 
 ### Chat
 - UUID primary key
-- User relation
+- ChatSession relation (links message to a session)
 - Location
 - Temperature
 - Weather conditions
@@ -156,53 +167,4 @@ You can access the documentation at:
 
 ### Project Structure
 
-```
-src/
-├── controllers/    # Route controllers
-├── services/      # Business logic
-├── types/         # TypeScript types and Zod schemas
-├── routes/        # API routes
-├── decorators/    # Custom decorators
-├── middleware/    # Custom middleware
-├── config/        # Configuration files
-├── lib/           # Shared libraries
-└── utils/         # Utility functions
-```
-
-### Running Tests
-
-```bash
-pnpm test
-```
-
-### Building for Production
-
-```bash
-pnpm build
-```
-
-### Deployment
-
-```bash
-pnpm deploy
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- [Fastify](https://www.fastify.io/) - Fast and low overhead web framework
-- [Prisma](https://www.prisma.io/) - Next-generation ORM
-- [Tomorrow.io](https://www.tomorrow.io/) - Weather data provider
-- [OpenAI](https://openai.com/) - AI-powered natural language processing
 ```

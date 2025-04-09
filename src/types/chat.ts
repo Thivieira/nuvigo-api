@@ -1,7 +1,7 @@
-import { Chat } from '@prisma/client';
+import { Chat, User, ChatSession } from '@prisma/client';
 
 export interface CreateChatDto {
-  userId: string;
+  chatSessionId: string;
   location: string;
   temperature: string;
   condition: string;
@@ -15,21 +15,29 @@ export interface UpdateChatDto {
   naturalResponse?: string;
 }
 
-export interface ChatResponse {
-  id: string;
-  userId: string;
-  location: string;
-  temperature: string;
-  condition: string;
-  naturalResponse: string;
-  createdAt: Date;
-  updatedAt: Date;
+export interface ChatResponse extends Omit<Chat, 'userId'> {
 }
 
-export type ChatWithUser = Chat & {
+export type ChatWithSessionAndUser = Chat & {
+  chatSession: ChatSession & {
+    user: {
+      id: string;
+      email: string;
+      name: string | null;
+    };
+  };
+};
+
+export type SessionWithChats = ChatSession & {
+  chats: Chat[];
   user: {
     id: string;
     email: string;
     name: string | null;
   };
-}; 
+};
+
+export interface CreateChatSessionDto {
+  userId: string;
+  title?: string;
+} 

@@ -25,20 +25,37 @@ model User {
   updatedAt          DateTime             @updatedAt
   VerificationToken  VerificationToken[]
   PasswordResetToken PasswordResetToken[]
+  ChatSession        ChatSession[]
+}
+
+// Represents a distinct conversation or time block
+model ChatSession {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade) // Link to the user who owns the session
+  title     String? // Optional title for the session (e.g., first query)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  chats     Chat[] // Relation to all chats within this session
+
+  @@index([userId])
+  @@index([userId, updatedAt]) // Index for finding the latest session for a user
 }
 
 model Chat {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  id              String      @id @default(uuid())
+  chatSessionId   String // Foreign key to ChatSession
+  chatSession     ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade) // Link to the parent session
   location        String
   temperature     String
   condition       String
   naturalResponse String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  User            User?       @relation(fields: [userId], references: [id])
+  userId          String?
 
-  @@index([userId])
+  @@index([chatSessionId]) // Index on the session ID
 }
 
 model RefreshToken {

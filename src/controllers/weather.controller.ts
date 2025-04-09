@@ -5,6 +5,7 @@ import { BaseController } from './base.controller';
 import { WeatherQuery } from '@/types/weather';
 import { ErrorResponse } from '@/types/common';
 import { JWTPayload } from '@/types/auth';
+import { getWeatherDescription } from '@/utils/weather.utils';
 
 export class WeatherController extends BaseController {
   constructor(
@@ -35,13 +36,14 @@ export class WeatherController extends BaseController {
   ) {
     try {
       const { location, query, language } = request.query;
+      const userId = request.user.userId; // Extract userId
 
-      // Create a timeline request with default values
-      const timelineRequest = {
+      // Define the request for the weather service
+      const weatherServiceRequest = {
         location: this.prepareLocation(location),
         timesteps: ['1h'],
         startTime: 'now',
-        endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days from now
+        endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
         fields: [
           'temperature',
           'humidity',
@@ -57,14 +59,44 @@ export class WeatherController extends BaseController {
           'cloudCeiling',
           'windDirection',
           'windGust',
-          'temperatureApparent'
-        ]
+          'temperatureApparent',
+          'weatherCode',
+        ],
+        units: 'metric',
+        timezone: 'America/Sao_Paulo'
       };
 
-      const weatherData = await this.weatherService.getFlexibleWeather(timelineRequest, query);
+      // Fetch weather data
+      const weatherData = await this.weatherService.getFlexibleWeather(weatherServiceRequest, query);
+
+      // Determine the title for the session (e.g., the user's initial query)
+      const sessionTitle = `Weather in ${weatherData.location} - ${query.substring(0, 50)}${query.length > 50 ? '...' : ''}`;
+
+      // Find or create an active chat session for the user
+      const session = await this.chatService.findOrCreateActiveSession(userId, sessionTitle);
+
+      // Prepare chat data with the session ID
+      const chatData = {
+        chatSessionId: session.id, // Use the obtained session ID
+        location: weatherData.location,
+        temperature: weatherData.temperature,
+        condition: getWeatherDescription(weatherData.condition.weatherCode),
+        naturalResponse: weatherData.naturalResponse,
+      };
+
+      try {
+        // Save the chat message to the determined session
+        await this.chatService.create(chatData);
+        console.log(`Chat entry saved successfully to session ${session.id} for user ${userId}`);
+      } catch (chatError: any) {
+        console.error('Failed to save chat entry:', chatError);
+      }
+
+      // Return the original weather data
       return this.sendSuccess(reply, weatherData);
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Weather data not found.') {
+
+    } catch (error: any) {
+      if (error instanceof Error && (error.message.includes('Weather data not found') || error.message.includes('Invalid location'))) {
         const errorResponse: ErrorResponse = {
           error: 'Location not found',
           code: 'NOT_FOUND',
@@ -73,7 +105,7 @@ export class WeatherController extends BaseController {
         return this.sendError(reply, errorResponse, 404);
       }
 
-      console.error(error);
+      console.error('Error in getFlexibleWeather:', error);
 
       return this.sendError(reply, this.handleError(error));
     }
