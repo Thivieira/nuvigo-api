@@ -125,6 +125,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         }
       }
     },
+    preHandler: authenticate,
     handler: authController.me.bind(authController),
   });
 

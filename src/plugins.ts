@@ -3,9 +3,18 @@ import { env } from './env';
 import { FastifyInstance } from 'fastify';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import cors from '@fastify/cors';
 import { swaggerOptions, swaggerUiOptions } from './config/swagger';
 
 export default async function registerPlugins(app: FastifyInstance) {
+  // Register CORS
+  app.register(cors, {
+    origin: true, // Allow all origins in development
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  });
+
   // Register JWT plugin
   app.register(jwt, {
     secret: env.JWT_SECRET,

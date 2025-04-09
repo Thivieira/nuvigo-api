@@ -14,9 +14,10 @@ export const swaggerOptions: SwaggerOptions = {
     produces: ['application/json'],
     tags: [
       { name: 'auth', description: 'Authentication endpoints' },
-      { name: 'users', description: 'User management endpoints' },
-      { name: 'chat', description: 'Chat service endpoints' },
-      { name: 'weather', description: 'Weather service endpoints' }
+      { name: 'user', description: 'User management endpoints' },
+      { name: 'chat-session', description: 'Chat session endpoints' },
+      { name: 'chat-message', description: 'Chat message endpoints' },
+      { name: 'weather', description: 'Weather service endpoint' }
     ],
     securityDefinitions: {
       bearerAuth: {
