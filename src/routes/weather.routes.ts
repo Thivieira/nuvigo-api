@@ -36,6 +36,64 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
       schema: {
         description: 'Get weather information using natural language query',
         tags: ['weather'],
+        security: [{ bearerAuth: [] }],
+        querystring: {
+          type: 'object',
+          required: ['query', 'location'],
+          properties: {
+            query: {
+              type: 'string',
+              description: 'Natural language query about weather (e.g., "How will it be on Friday afternoon?")'
+            },
+            location: {
+              type: 'string',
+              description: 'City name or location string'
+            },
+            language: {
+              type: 'string',
+              description: 'Language code for the response (e.g., "pt-br", "en")',
+              default: 'en'
+            }
+          }
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              temperature: { type: 'string', description: 'Current temperature' },
+              high: { type: 'string', description: 'High temperature for the day' },
+              low: { type: 'string', description: 'Low temperature for the day' },
+              condition: { type: 'string', description: 'Current weather condition' },
+              naturalResponse: { type: 'string', description: 'Natural language response to the query' },
+              location: { type: 'string', description: 'Location name' },
+              weatherCode: { type: 'number', description: 'Weather condition code from Tomorrow.io' }
+            }
+          },
+          400: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          500: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          }
+        }
       },
       onRequest: [authenticate],
       handler: async (
@@ -83,6 +141,7 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
       schema: {
         description: 'Get weather information for a specific location',
         tags: ['weather'],
+        security: [{ bearerAuth: [] }],
         querystring: {
           type: 'object',
           oneOf: [
@@ -128,13 +187,25 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
           400: {
             type: 'object',
             properties: {
-              error: { type: 'string' }
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
             }
           },
           500: {
             type: 'object',
             properties: {
-              error: { type: 'string' }
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
             }
           }
         }
@@ -173,6 +244,7 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
       schema: {
         description: 'Get weather information based on a natural language query',
         tags: ['weather'],
+        security: [{ bearerAuth: [] }],
         querystring: {
           type: 'object',
           required: ['location', 'query'],
@@ -207,13 +279,25 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
           400: {
             type: 'object',
             properties: {
-              error: { type: 'string' }
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
             }
           },
           500: {
             type: 'object',
             properties: {
-              error: { type: 'string' }
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
             }
           }
         }
