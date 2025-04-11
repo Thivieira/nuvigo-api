@@ -1,10 +1,19 @@
 import jwt from '@fastify/jwt';
 import { env } from './env';
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest } from 'fastify';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { swaggerOptions, swaggerUiOptions } from './config/swagger';
+import { rateLimitConfig } from './config/rate-limit';
+import { JWTPayload } from '@/types/auth';
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    user?: JWTPayload;
+  }
+}
 
 export default async function registerPlugins(app: FastifyInstance) {
   // Register CORS
@@ -14,6 +23,9 @@ export default async function registerPlugins(app: FastifyInstance) {
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
   });
+
+  // Register rate limiting
+  app.register(rateLimit, rateLimitConfig);
 
   // Register JWT plugin
   app.register(jwt, {

@@ -109,6 +109,20 @@ const DEFAULT_FIELDS = [
   'pressureSurfaceLevel'
 ];
 
+// Cache interface
+interface WeatherCache {
+  data: WeatherResponse;
+  timestamp: number;
+}
+
+// Cache storage
+const weatherCache = new Map<string, WeatherCache>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+
 // Helper functions
 function formatLocationParam(location: string | Location): string {
   if (typeof location === 'string') {
@@ -140,23 +154,175 @@ interface FlexibleWeatherResult {
 export class WeatherService {
   private readonly apiKey: string;
   private readonly baseUrl: string = 'https://api.tomorrow.io/v4/weather';
+  private readonly rateLimits = {
+    daily: 500,
+    hourly: 25,
+    perSecond: 3
+  };
 
   constructor() {
     this.apiKey = env.TOMORROW_API_KEY;
+    console.log('WeatherService initialized with rate limits:', this.rateLimits);
+  }
+
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    retries = MAX_RETRIES,
+    delay = INITIAL_RETRY_DELAY
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (retries === 0) throw error;
+
+      // Only retry on rate limit errors
+      if (axios.isAxiosError(error) && error.response?.status === 429) {
+        const retryAfter = error.response.headers['retry-after'] || delay;
+        console.log(`Rate limit hit, retrying in ${retryAfter}ms... (${retries} retries left)`);
+        await new Promise(resolve => setTimeout(resolve, parseInt(retryAfter) * 1000));
+        return this.retryWithBackoff(operation, retries - 1, delay * 2);
+      }
+
+      throw error;
+    }
+  }
+
+  private checkRateLimits(headers: any) {
+    const limits = {
+      daily: {
+        limit: headers['x-ratelimit-limit-day'] || this.rateLimits.daily,
+        remaining: headers['x-ratelimit-remaining-day']
+      },
+      hourly: {
+        limit: headers['x-ratelimit-limit-hour'] || this.rateLimits.hourly,
+        remaining: headers['x-ratelimit-remaining-hour']
+      },
+      perSecond: {
+        limit: headers['x-ratelimit-limit-second'] || this.rateLimits.perSecond,
+        remaining: headers['x-ratelimit-remaining-second']
+      }
+    };
+
+    // Log rate limit status with percentage remaining
+    const status = {
+      daily: {
+        remaining: limits.daily.remaining,
+        limit: limits.daily.limit,
+        percentage: limits.daily.remaining ?
+          Math.round((parseInt(limits.daily.remaining) / parseInt(limits.daily.limit)) * 100) :
+          'unknown'
+      },
+      hourly: {
+        remaining: limits.hourly.remaining,
+        limit: limits.hourly.limit,
+        percentage: limits.hourly.remaining ?
+          Math.round((parseInt(limits.hourly.remaining) / parseInt(limits.hourly.limit)) * 100) :
+          'unknown'
+      },
+      perSecond: {
+        remaining: limits.perSecond.remaining,
+        limit: limits.perSecond.limit,
+        percentage: limits.perSecond.remaining ?
+          Math.round((parseInt(limits.perSecond.remaining) / parseInt(limits.perSecond.limit)) * 100) :
+          'unknown'
+      }
+    };
+
+    console.log('Rate Limits Status:', status);
+
+    // Check if we're close to any limits
+    const warnings = [];
+    if (limits.daily.remaining && parseInt(limits.daily.remaining) < 50)
+      warnings.push(`Daily limit is running low (${limits.daily.remaining}/${limits.daily.limit})`);
+    if (limits.hourly.remaining && parseInt(limits.hourly.remaining) < 5)
+      warnings.push(`Hourly limit is running low (${limits.hourly.remaining}/${limits.hourly.limit})`);
+    if (limits.perSecond.remaining && parseInt(limits.perSecond.remaining) < 1)
+      warnings.push(`Per-second limit is running low (${limits.perSecond.remaining}/${limits.perSecond.limit})`);
+
+    if (warnings.length > 0) {
+      console.warn('Rate Limit Warnings:', warnings);
+    }
+  }
+
+  private checkTokenUsage(headers: any) {
+    const tokenCost = headers['x-tokens-cost-weather'];
+    const tokensRemaining = headers['x-tokens-remaining-weather'];
+
+    if (tokenCost && tokensRemaining) {
+      console.log('Token Usage:', {
+        cost: tokenCost,
+        remaining: tokensRemaining
+      });
+
+      if (parseInt(tokensRemaining) < 100) {
+        console.warn('Low token balance:', tokensRemaining);
+      }
+    }
+  }
+
+  private getCacheKey(location: string | { lat: number; lon: number }): string {
+    return typeof location === 'string' ? location : `${location.lat},${location.lon}`;
+  }
+
+  private getFromCache(location: string | { lat: number; lon: number }): WeatherResponse | null {
+    const cacheKey = this.getCacheKey(location);
+    const cached = weatherCache.get(cacheKey);
+
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log('Returning cached weather data for:', cacheKey);
+      return cached.data;
+    }
+
+    return null;
+  }
+
+  private setCache(location: string | { lat: number; lon: number }, data: WeatherResponse): void {
+    const cacheKey = this.getCacheKey(location);
+    weatherCache.set(cacheKey, {
+      data,
+      timestamp: Date.now()
+    });
   }
 
   async getWeather(location: string | { lat: number; lon: number }): Promise<WeatherResponse> {
     try {
+      // Check cache first
+      const cachedData = this.getFromCache(location);
+      if (cachedData) {
+        return cachedData;
+      }
+
       const locationParam = typeof location === 'string'
         ? `location=${encodeURIComponent(location)}`
         : `location=${location.lat},${location.lon}`;
 
       console.log('Fetching weather data for:', locationParam);
 
-      // Get realtime weather data
-      const response = await axios.get(
-        `${this.baseUrl}/realtime?${locationParam}&apikey=${this.apiKey}&units=metric`
-      );
+      // Get realtime weather data with retry logic
+      const response = await this.retryWithBackoff(async () => {
+        const result = await axios.get(
+          `${this.baseUrl}/realtime?${locationParam}&apikey=${this.apiKey}&units=metric`
+        );
+
+        // Log all response headers
+        console.log('Tomorrow.io API Response Headers:', {
+          'x-ratelimit-limit-day': result.headers['x-ratelimit-limit-day'],
+          'x-ratelimit-remaining-day': result.headers['x-ratelimit-remaining-day'],
+          'x-ratelimit-limit-hour': result.headers['x-ratelimit-limit-hour'],
+          'x-ratelimit-remaining-hour': result.headers['x-ratelimit-remaining-hour'],
+          'x-ratelimit-limit-second': result.headers['x-ratelimit-limit-second'],
+          'x-ratelimit-remaining-second': result.headers['x-ratelimit-remaining-second'],
+          'x-tokens-cost-weather': result.headers['x-tokens-cost-weather'],
+          'x-tokens-remaining-weather': result.headers['x-tokens-remaining-weather'],
+          'retry-after': result.headers['retry-after']
+        });
+
+        // Check rate limits and token usage
+        this.checkRateLimits(result.headers);
+        this.checkTokenUsage(result.headers);
+
+        return result;
+      });
 
       if (!response.data || !response.data.data) {
         throw new Error('Invalid response from weather API');
@@ -198,6 +364,9 @@ export class WeatherService {
         windSpeed: `${Math.round(data.values.windSpeed)} km/h`,
         weatherCode: data.values.weatherCode
       };
+
+      // Cache the response
+      this.setCache(location, weatherResponse);
 
       console.log('Returning weather response:', weatherResponse);
       return weatherResponse;
