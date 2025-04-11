@@ -62,12 +62,15 @@ model Chat {
   updatedAt     DateTime    @updatedAt
   chatSessionId String
   message       String
+  role          String      @default("user")
+  turn          Int
   metadata      Json?
-  response      String
   chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
   User          User?       @relation(fields: [userId], references: [id])
 
   @@index([chatSessionId])
+  @@index([role, turn])
+  @@map("chats")
 }
 
 model RefreshToken {

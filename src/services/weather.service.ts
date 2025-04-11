@@ -304,19 +304,6 @@ export class WeatherService {
           `${this.baseUrl}/realtime?${locationParam}&apikey=${this.apiKey}&units=metric`
         );
 
-        // Log all response headers
-        console.log('Tomorrow.io API Response Headers:', {
-          'x-ratelimit-limit-day': result.headers['x-ratelimit-limit-day'],
-          'x-ratelimit-remaining-day': result.headers['x-ratelimit-remaining-day'],
-          'x-ratelimit-limit-hour': result.headers['x-ratelimit-limit-hour'],
-          'x-ratelimit-remaining-hour': result.headers['x-ratelimit-remaining-hour'],
-          'x-ratelimit-limit-second': result.headers['x-ratelimit-limit-second'],
-          'x-ratelimit-remaining-second': result.headers['x-ratelimit-remaining-second'],
-          'x-tokens-cost-weather': result.headers['x-tokens-cost-weather'],
-          'x-tokens-remaining-weather': result.headers['x-tokens-remaining-weather'],
-          'retry-after': result.headers['retry-after']
-        });
-
         // Check rate limits and token usage
         this.checkRateLimits(result.headers);
         this.checkTokenUsage(result.headers);
