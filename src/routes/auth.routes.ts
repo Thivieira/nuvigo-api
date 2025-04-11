@@ -152,7 +152,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
             user: {
               type: 'object',
               properties: {
-                id: { type: 'string' },
+                id: { type: 'string', format: 'uuid' },
                 email: { type: 'string', format: 'email' },
                 name: { type: 'string' }
               }
@@ -162,7 +162,17 @@ export default async function authRoutes(fastify: FastifyInstance) {
         401: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         }
       }
@@ -193,7 +203,25 @@ export default async function authRoutes(fastify: FastifyInstance) {
         400: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         }
       }
@@ -224,7 +252,25 @@ export default async function authRoutes(fastify: FastifyInstance) {
         400: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         }
       }
@@ -255,7 +301,25 @@ export default async function authRoutes(fastify: FastifyInstance) {
         400: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        401: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         }
       }

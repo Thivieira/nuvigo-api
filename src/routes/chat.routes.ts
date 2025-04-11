@@ -71,6 +71,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
               ]
             }
           },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
           500: {
             type: 'object',
             properties: {
@@ -114,6 +122,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
               }
             ]
           },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
           404: {
             type: 'object',
             properties: {
@@ -151,6 +167,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         },
         response: {
           204: { type: 'null' },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
           404: {
             type: 'object',
             properties: {
@@ -211,6 +235,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
               }
             ]
           },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
           404: {
             type: 'object',
             properties: {
@@ -262,6 +294,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
                 }
               }
             ]
+          },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
           },
           404: {
             type: 'object',
@@ -324,6 +364,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
               }
             ]
           },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
           404: {
             type: 'object',
             properties: {
@@ -361,6 +409,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         },
         response: {
           204: { type: 'null' },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
           404: {
             type: 'object',
             properties: {

@@ -13,6 +13,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
     schema: {
       description: 'Get all locations for the authenticated user',
       tags: ['location'],
+      security: [{ bearerAuth: [] }],
       response: {
         200: {
           type: 'object',
@@ -35,13 +36,17 @@ export async function locationRoutes(fastify: FastifyInstance) {
         401: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         },
         500: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         }
       }
@@ -56,6 +61,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
     schema: {
       description: 'Add a new location for the authenticated user',
       tags: ['location'],
+      security: [{ bearerAuth: [] }],
       body: {
         type: 'object',
         required: ['name'],
@@ -80,13 +86,25 @@ export async function locationRoutes(fastify: FastifyInstance) {
         400: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         },
         401: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         }
       }
@@ -101,6 +119,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
     schema: {
       description: 'Set a location as active for the authenticated user',
       tags: ['location'],
+      security: [{ bearerAuth: [] }],
       params: {
         type: 'object',
         required: ['id'],
@@ -126,19 +145,33 @@ export async function locationRoutes(fastify: FastifyInstance) {
         400: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         },
         401: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         },
         404: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         }
       }
@@ -153,6 +186,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
     schema: {
       description: 'Delete a location for the authenticated user',
       tags: ['location'],
+      security: [{ bearerAuth: [] }],
       params: {
         type: 'object',
         required: ['id'],
@@ -169,19 +203,33 @@ export async function locationRoutes(fastify: FastifyInstance) {
         400: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         },
         401: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         },
         404: {
           type: 'object',
           properties: {
-            error: { type: 'string' }
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string' },
+            details: { type: 'object' }
           }
         }
       }
