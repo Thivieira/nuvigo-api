@@ -23,6 +23,23 @@ model User {
   PasswordResetToken PasswordResetToken[]
   refreshTokens      RefreshToken[]
   VerificationToken  VerificationToken[]
+  locations          Location[]
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  name      String // City name
+  userId    String // Reference to the user who saved this location
+  isActive  Boolean  @default(false) // Whether this is the user's active location
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name]) // A user can't save the same location twice
+  @@index([userId])
+  @@index([userId, isActive])
 }
 
 model ChatSession {

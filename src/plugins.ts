@@ -10,7 +10,7 @@ export default async function registerPlugins(app: FastifyInstance) {
   // Register CORS
   app.register(cors, {
     origin: true, // Allow all origins in development
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
   });

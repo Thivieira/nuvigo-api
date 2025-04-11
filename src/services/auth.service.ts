@@ -32,9 +32,11 @@ export class AuthService {
           id: true,
           email: true,
           name: true,
+          phone: true,
           emailVerified: true,
           createdAt: true,
           updatedAt: true,
+          role: true,
         },
       });
 
@@ -72,10 +74,12 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        phone: true,
         password: true,
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
+        role: true,
       }
     });
 
@@ -119,6 +123,8 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        phone: true,
+        role: true,
       },
     });
 
@@ -195,11 +201,14 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        phone: true,
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
+        role: true,
       },
     });
+    console.log('user', user);
     return user;
   }
 

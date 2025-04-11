@@ -52,3 +52,11 @@ export interface WeatherCodes {
   weatherCodeDay: Record<string, string>;
   weatherCodeNight: Record<string, string>;
 }
+
+export interface TomorrowIoRealtimeResponse {
+  data: {
+    time: string;
+    values: TomorrowIoValues;
+  };
+  location: TomorrowIoLocation;
+}

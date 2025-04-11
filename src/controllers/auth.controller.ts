@@ -127,7 +127,6 @@ export class AuthController extends BaseController {
 
   async me(request: FastifyRequest & { user: { userId: string } }, reply: FastifyReply) {
     try {
-      console.log('me', request.user);
       const user = await this.authService.getCurrentUser(request.user.userId);
       if (!user) {
         return this.sendError(reply, {

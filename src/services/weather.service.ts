@@ -5,6 +5,8 @@ import { analyzeWeatherData, PromptParams, analyzeDateWithHistory } from '@/util
 import { getWeatherDescription, formatWeatherDataForResponse } from '@/utils/weather.utils';
 import { env } from '@/env';
 import { ChatService } from "./chat.service";
+import { FastifyReply, FastifyRequest } from 'fastify';
+import axios from 'axios';
 
 interface TimelineRequest {
   location: string | {
@@ -52,33 +54,13 @@ interface TimelineResponse {
 interface WeatherResponse {
   location: string;
   temperature: string;
-  condition: {
-    cloudBase: number | null;
-    cloudCeiling: number | null;
-    cloudCover: number;
-    dewPoint: number;
-    freezingRainIntensity: number;
-    humidity: number;
-    precipitationProbability: number;
-    pressureSeaLevel: number;
-    pressureSurfaceLevel: number;
-    rainIntensity: number;
-    sleetIntensity: number;
-    snowIntensity: number;
-    temperature: number;
-    temperatureApparent: number;
-    uvHealthConcern: number;
-    uvIndex: number;
-    visibility: number;
-    weatherCode: number;
-    windDirection: number;
-    windGust: number;
-    windSpeed: number;
-  };
-  naturalResponse: string;
-  currentTime: string;
-  queryTime: string;
-  targetTime: string;
+  condition: string;
+  high: string;
+  low: string;
+  precipitation: string;
+  humidity: string;
+  windSpeed: string;
+  weatherCode: number;
 }
 
 interface Location {
@@ -156,6 +138,113 @@ interface FlexibleWeatherResult {
 }
 
 export class WeatherService {
+  private readonly apiKey: string;
+  private readonly baseUrl: string = 'https://api.tomorrow.io/v4/weather';
+
+  constructor() {
+    this.apiKey = env.TOMORROW_API_KEY;
+  }
+
+  async getWeather(location: string | { lat: number; lon: number }): Promise<WeatherResponse> {
+    try {
+      const locationParam = typeof location === 'string'
+        ? `location=${encodeURIComponent(location)}`
+        : `location=${location.lat},${location.lon}`;
+
+      console.log('Fetching weather data for:', locationParam);
+
+      // Get realtime weather data
+      const response = await axios.get(
+        `${this.baseUrl}/realtime?${locationParam}&apikey=${this.apiKey}&units=metric`
+      );
+
+      if (!response.data || !response.data.data) {
+        throw new Error('Invalid response from weather API');
+      }
+
+      const data = response.data.data;
+      console.log('Received weather data:', data);
+
+      // Format precipitation based on type and intensity
+      let precipitation = '0%';
+      const precipProbability = Math.round(data.values.precipitationProbability);
+      const rainIntensity = data.values.rainIntensity || 0;
+      const snowIntensity = data.values.snowIntensity || 0;
+      const freezingRainIntensity = data.values.freezingRainIntensity || 0;
+      const sleetIntensity = data.values.sleetIntensity || 0;
+
+      if (precipProbability > 0) {
+        if (rainIntensity > 0) {
+          precipitation = `${precipProbability}% rain (${rainIntensity.toFixed(1)} mm/h)`;
+        } else if (snowIntensity > 0) {
+          precipitation = `${precipProbability}% snow (${snowIntensity.toFixed(1)} mm/h)`;
+        } else if (freezingRainIntensity > 0) {
+          precipitation = `${precipProbability}% freezing rain (${freezingRainIntensity.toFixed(1)} mm/h)`;
+        } else if (sleetIntensity > 0) {
+          precipitation = `${precipProbability}% sleet (${sleetIntensity.toFixed(1)} mm/h)`;
+        } else {
+          precipitation = `${precipProbability}%`;
+        }
+      }
+
+      const weatherResponse: WeatherResponse = {
+        location: typeof location === 'string' ? location : `${location.lat},${location.lon}`,
+        temperature: Math.round(data.values.temperature).toString(),
+        condition: this.translateCondition(data.values.weatherCode),
+        high: Math.round(data.values.temperature).toString(),
+        low: Math.round(data.values.temperature).toString(),
+        precipitation,
+        humidity: `${Math.round(data.values.humidity)}%`,
+        windSpeed: `${Math.round(data.values.windSpeed)} km/h`,
+        weatherCode: data.values.weatherCode
+      };
+
+      console.log('Returning weather response:', weatherResponse);
+      return weatherResponse;
+    } catch (error) {
+      console.error('Weather API Error:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          throw new Error(`Weather API error: ${error.response.status} - ${error.response.data?.message || 'Unknown error'}`);
+        } else if (error.request) {
+          throw new Error('No response received from weather API');
+        }
+      }
+      throw new Error(`Failed to fetch weather data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private translateCondition(code: number): string {
+    // Basic translation of weather codes to Portuguese
+    const conditions: { [key: number]: string } = {
+      1000: 'Céu Limpo',
+      1100: 'Parcialmente Nublado',
+      1101: 'Parcialmente Nublado',
+      1102: 'Parcialmente Nublado',
+      1001: 'Nublado',
+      2000: 'Neblina',
+      2100: 'Neblina Leve',
+      4000: 'Chuva',
+      4001: 'Chuva',
+      4200: 'Chuva Leve',
+      4201: 'Chuva Forte',
+      5000: 'Neve',
+      5001: 'Neve',
+      5100: 'Neve Leve',
+      5101: 'Neve Forte',
+      6000: 'Chuva Congelante',
+      6001: 'Chuva Congelante',
+      6200: 'Chuva Congelante Leve',
+      6201: 'Chuva Congelante Forte',
+      7000: 'Granizo',
+      7101: 'Granizo',
+      7102: 'Granizo Pesado',
+      8000: 'Tempestade',
+    };
+
+    return conditions[code] || 'Condição Desconhecida';
+  }
+
   async getFlexibleWeather(
     request: TimelineRequest,
     query: string,
@@ -234,10 +323,8 @@ export class WeatherService {
       let weatherResponse;
       try {
         console.log('Starting Tomorrow.io API call');
-        weatherResponse = await fetch(weatherUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(timelineRequest),
+        weatherResponse = await axios.post(weatherUrl, timelineRequest, {
+          headers: { 'Content-Type': 'application/json' }
         });
         console.log('Tomorrow.io API call completed with status:', weatherResponse.status);
       } catch (error: any) {
@@ -245,25 +332,17 @@ export class WeatherService {
         throw new Error(`Failed to fetch weather data: ${error.message}`);
       }
 
-      if (!weatherResponse.ok) {
-        const errorData = await weatherResponse.json();
+      if (weatherResponse.status !== 200) {
         console.error('Tomorrow.io API Error:', {
           status: weatherResponse.status,
           statusText: weatherResponse.statusText,
-          error: errorData
+          error: weatherResponse.data
         });
         throw new Error(`Failed to fetch weather data: ${weatherResponse.status} ${weatherResponse.statusText}`);
       }
 
-      let weatherData;
-      try {
-        console.log('Parsing Tomorrow.io API response');
-        weatherData = await weatherResponse.json();
-        console.log('Weather data received successfully');
-      } catch (error: any) {
-        console.error('Error parsing Tomorrow.io API response:', error);
-        throw new Error(`Failed to parse weather data: ${error.message}`);
-      }
+      let weatherData = weatherResponse.data;
+      console.log('Weather data received successfully');
 
       console.log('Timeline data structure:', JSON.stringify(weatherData.data.timelines[0], null, 2));
 
@@ -347,15 +426,14 @@ export class WeatherService {
       // Create the final weather data response object
       const finalWeatherData: WeatherResponse = {
         location: locationParam,
-        temperature: `${values.temperature}°C`,
-        condition: {
-          ...condition,
-          temperature: values.temperature
-        },
-        naturalResponse,
-        currentTime: currentInterval.startTime,
-        queryTime: queryTime.toISOString(),
-        targetTime: isFuture ? targetDayjs.toISOString() : currentInterval.startTime
+        temperature: Math.round(values.temperature).toString(),
+        condition: this.translateCondition(values.weatherCode || 1000),
+        high: Math.round(values.temperatureMax || 0).toString(),
+        low: Math.round(values.temperatureMin || 0).toString(),
+        precipitation: `${Math.round(values.precipitationProbability * 100)}%`,
+        humidity: `${Math.round(values.humidity * 100)}%`,
+        windSpeed: `${Math.round(values.windSpeed)} mph`,
+        weatherCode: values.weatherCode || 1000
       };
 
       console.log('Final response temperature:', finalWeatherData.temperature);
@@ -371,6 +449,27 @@ export class WeatherService {
         }
       }
       throw error;
+    }
+  }
+
+  async getWeatherQuery(location: string, query: string, language: string = 'en'): Promise<any> {
+    try {
+      // First get the current weather data
+      const weatherData = await this.getWeather(location);
+
+      // Here you would typically use an AI service (like OpenAI) to process the query
+      // and generate a natural language response based on the weather data
+      // For now, we'll return a simple response structure
+      return {
+        location: weatherData.location,
+        temperature: weatherData.temperature,
+        condition: weatherData.condition,
+        naturalResponse: `The current weather in ${weatherData.location} is ${weatherData.condition} with a temperature of ${weatherData.temperature}°F.`,
+        query: query,
+        language: language
+      };
+    } catch (error) {
+      throw new Error('Failed to process weather query');
     }
   }
 }

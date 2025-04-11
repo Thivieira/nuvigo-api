@@ -3,6 +3,7 @@ import weatherRoutes from './routes/weather.routes';
 import userRoutes from './routes/user.routes';
 import chatRoutes from './routes/chat.routes';
 import authRoutes from './routes/auth.routes';
+import { locationRoutes } from './routes/location.routes';
 import registerPlugins from './plugins';
 
 const app = Fastify({
@@ -32,6 +33,7 @@ app.register(authRoutes, { prefix: '/auth' });
 app.register(userRoutes, { prefix: '/user' });
 app.register(chatRoutes, { prefix: '/chat' });
 app.register(weatherRoutes, { prefix: '/weather' });
+app.register(locationRoutes, { prefix: '/location' });
 
 const start = async () => {
   try {
