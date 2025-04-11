@@ -32,11 +32,18 @@ export class AuthService {
           id: true,
           email: true,
           name: true,
+          emailVerified: true,
+          createdAt: true,
+          updatedAt: true,
         },
       });
 
       // Generate tokens
-      const accessToken = TokenService.generateAccessToken(user.id);
+      const accessToken = TokenService.generateAccessToken({
+        userId: user.id,
+        email: user.email,
+        role: 'USER',
+      });
       const refreshToken = await TokenService.createRefreshToken(user.id);
 
       // Create verification token
@@ -61,6 +68,15 @@ export class AuthService {
     // Find user
     const user = await prisma.user.findUnique({
       where: { email: data.email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        password: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      }
     });
 
     if (!user) {
@@ -75,17 +91,19 @@ export class AuthService {
     }
 
     // Generate tokens
-    const accessToken = TokenService.generateAccessToken(user.id);
+    const accessToken = TokenService.generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      role: 'USER',
+    });
     const refreshToken = await TokenService.createRefreshToken(user.id);
+
+    const { password: _, ...userWithoutPassword } = user;
 
     return {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
+      user: userWithoutPassword,
     };
   }
 
@@ -108,7 +126,11 @@ export class AuthService {
       throw new Error('User not found');
     }
 
-    const accessToken = TokenService.generateAccessToken(user.id);
+    const accessToken = TokenService.generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      role: 'USER',
+    });
     const newRefreshToken = await TokenService.createRefreshToken(user.id);
 
     return {
@@ -173,10 +195,33 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        emailVerified: true,
         createdAt: true,
         updatedAt: true,
       },
     });
     return user;
+  }
+
+  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const isValidPassword = await bcrypt.compare(oldPassword, user.password);
+    if (!isValidPassword) {
+      throw new Error('Invalid old password');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
   }
 } 

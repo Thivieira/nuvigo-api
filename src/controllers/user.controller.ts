@@ -3,6 +3,7 @@ import { UserService } from '@/services/user.service';
 import { CreateUserDto, UpdateUserDto } from '@/types/user';
 import { Prisma } from '@prisma/client';
 import { BaseController } from './base.controller';
+import { JWTPayload } from '@/types/auth';
 
 export class UserController extends BaseController {
   constructor(private readonly userService: UserService) {
@@ -27,8 +28,17 @@ export class UserController extends BaseController {
     }
   }
 
-  async findAll(request: FastifyRequest, reply: FastifyReply) {
+  async findAll(request: FastifyRequest & { user: JWTPayload }, reply: FastifyReply) {
     try {
+      // Only admin users can list all users
+      if (request.user.role !== 'ADMIN') {
+        return this.sendError(reply, {
+          error: 'Forbidden',
+          code: 'FORBIDDEN',
+          details: { message: 'Only administrators can list all users' }
+        }, 403);
+      }
+
       const users = await this.userService.findAll();
       return this.sendSuccess(reply, users);
     } catch (error) {
@@ -36,64 +46,106 @@ export class UserController extends BaseController {
     }
   }
 
-  async findById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+  async findById(request: FastifyRequest<{ Params: { id?: string } }> & { user: JWTPayload }, reply: FastifyReply) {
     try {
-      const user = await this.userService.findById(request.params.id);
+      const userId = request.params.id || request.user.userId;
+      const user = await this.userService.findById(userId);
+
       if (!user) {
         return this.sendError(reply, {
           error: 'User not found',
           code: 'USER_NOT_FOUND',
-          details: { id: request.params.id }
+          details: { id: userId }
         }, 404);
       }
+
+      // Only allow admin to view other users or users to view their own profile
+      if (request.user.role !== 'ADMIN' && request.user.userId !== user.id) {
+        return this.sendError(reply, {
+          error: 'Forbidden',
+          code: 'FORBIDDEN',
+          details: { message: 'You can only view your own profile' }
+        }, 403);
+      }
+
       return this.sendSuccess(reply, user);
     } catch (error) {
       return this.sendError(reply, this.handleError(error));
     }
   }
 
-  async update(
-    request: FastifyRequest<{ Params: { id: string }; Body: UpdateUserDto }>,
-    reply: FastifyReply
-  ) {
+  async getCurrentUser(request: FastifyRequest & { user: JWTPayload }, reply: FastifyReply) {
     try {
-      const user = await this.userService.update(request.params.id, request.body);
+      const user = await this.userService.findById(request.user.userId);
+
+      if (!user) {
+        return this.sendError(reply, {
+          error: 'User not found',
+          code: 'USER_NOT_FOUND',
+          details: { id: request.user.userId }
+        }, 404);
+      }
+
       return this.sendSuccess(reply, user);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          return this.sendError(reply, {
-            error: 'User not found',
-            code: 'USER_NOT_FOUND',
-            details: { id: request.params.id }
-          }, 404);
-        }
-        if (error.code === 'P2002') {
-          return this.sendError(reply, {
-            error: 'Email already exists',
-            code: 'EMAIL_EXISTS',
-            details: { email: request.body.email }
-          }, 400);
-        }
-      }
       return this.sendError(reply, this.handleError(error));
     }
   }
 
-  async delete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+  async update(request: FastifyRequest<{ Params: { id?: string }, Body: UpdateUserDto }> & { user: JWTPayload }, reply: FastifyReply) {
     try {
-      await this.userService.delete(request.params.id);
-      return this.sendSuccess(reply, null, 204);
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
-          return this.sendError(reply, {
-            error: 'User not found',
-            code: 'USER_NOT_FOUND',
-            details: { id: request.params.id }
-          }, 404);
-        }
+      const userId = request.params.id || request.user.userId;
+      const user = await this.userService.findById(userId);
+
+      if (!user) {
+        return this.sendError(reply, {
+          error: 'User not found',
+          code: 'USER_NOT_FOUND',
+          details: { id: userId }
+        }, 404);
       }
+
+      // Only allow admin to update other users or users to update their own profile
+      if (request.user.role !== 'ADMIN' && request.user.userId !== user.id) {
+        return this.sendError(reply, {
+          error: 'Forbidden',
+          code: 'FORBIDDEN',
+          details: { message: 'You can only update your own profile' }
+        }, 403);
+      }
+
+      const updatedUser = await this.userService.update(userId, request.body);
+      return this.sendSuccess(reply, updatedUser);
+    } catch (error) {
+      return this.sendError(reply, this.handleError(error));
+    }
+  }
+
+  async delete(request: FastifyRequest<{ Params: { id?: string } }> & { user: JWTPayload }, reply: FastifyReply) {
+    try {
+      const userId = request.params.id || request.user.userId;
+      const user = await this.userService.findById(userId);
+
+      if (!user) {
+        return this.sendError(reply, {
+          error: 'User not found',
+          code: 'USER_NOT_FOUND',
+          details: { id: userId }
+        }, 404);
+      }
+
+      // Only allow admin to delete other users or users to delete their own profile
+      if (request.user.role !== 'ADMIN' && request.user.userId !== user.id) {
+        return this.sendError(reply, {
+          error: 'Forbidden',
+          code: 'FORBIDDEN',
+          details: { message: 'You can only delete your own profile' }
+        }, 403);
+      }
+
+      await this.userService.delete(userId);
+      return this.sendSuccess(reply, { message: 'User deleted successfully' });
+    } catch (error) {
       return this.sendError(reply, this.handleError(error));
     }
   }

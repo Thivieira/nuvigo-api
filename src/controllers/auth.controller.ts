@@ -140,4 +140,14 @@ export class AuthController extends BaseController {
       return this.sendError(reply, this.handleError(error));
     }
   }
+
+  async changePassword(request: FastifyRequest<{ Body: { oldPassword: string, newPassword: string } }>, reply: FastifyReply) {
+    try {
+      const { oldPassword, newPassword } = request.body;
+      await this.authService.changePassword(request.user.userId, oldPassword, newPassword);
+      return this.sendSuccess(reply, { message: 'Password changed successfully' });
+    } catch (error) {
+      return this.sendError(reply, this.handleError(error));
+    }
+  }
 } 

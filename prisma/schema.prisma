@@ -1,11 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -19,51 +14,52 @@ model User {
   password           String
   name               String?
   emailVerified      Boolean              @default(false)
-  chats              Chat[]
-  refreshTokens      RefreshToken[]
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
-  VerificationToken  VerificationToken[]
-  PasswordResetToken PasswordResetToken[]
+  role               UserRole             @default(USER)
+  phone              String?
+  chats              Chat[]
   ChatSession        ChatSession[]
+  PasswordResetToken PasswordResetToken[]
+  refreshTokens      RefreshToken[]
+  VerificationToken  VerificationToken[]
 }
 
-// Represents a distinct conversation or time block
 model ChatSession {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade) // Link to the user who owns the session
-  title     String? // Optional title for the session (e.g., first query)
+  title     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  chats     Chat[] // Relation to all chats within this session
+  chats     Chat[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([userId, updatedAt]) // Index for finding the latest session for a user
+  @@index([userId, updatedAt])
 }
 
 model Chat {
   id            String      @id @default(uuid())
-  chatSessionId String // Foreign key to ChatSession
-  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade) // Link to the parent session
   userId        String?
-  User          User?       @relation(fields: [userId], references: [id])
-  message       String // The user's query/message
-  response      String // The AI's response
-  metadata      Json? // Additional metadata like weather data
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  chatSessionId String
+  message       String
+  metadata      Json?
+  response      String
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  User          User?       @relation(fields: [userId], references: [id])
 
-  @@index([chatSessionId]) // Index on the session ID
+  @@index([chatSessionId])
 }
 
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
@@ -73,9 +69,9 @@ model VerificationToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
@@ -85,10 +81,15 @@ model PasswordResetToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
+}
+
+enum UserRole {
+  USER
+  ADMIN
 }

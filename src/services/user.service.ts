@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+
 import { CreateUserDto, UpdateUserDto, UserWithoutPassword } from '@/types/user';
 import bcrypt from 'bcrypt';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export class UserService {
   async create(data: CreateUserDto): Promise<UserWithoutPassword> {
@@ -17,9 +16,11 @@ export class UserService {
         id: true,
         email: true,
         name: true,
+        phone: true,
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
+        role: true,
       },
     });
 
@@ -32,9 +33,11 @@ export class UserService {
         id: true,
         email: true,
         name: true,
+        phone: true,
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
+        role: true,
       },
     });
   }
@@ -46,9 +49,11 @@ export class UserService {
         id: true,
         email: true,
         name: true,
+        phone: true,
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
+        role: true,
       },
     });
   }
@@ -65,9 +70,11 @@ export class UserService {
         id: true,
         email: true,
         name: true,
+        phone: true,
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
+        role: true,
       },
     });
   }

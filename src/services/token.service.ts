@@ -1,53 +1,35 @@
-import { PrismaClient } from '@prisma/client';
-import { randomBytes } from 'crypto';
+import { prisma } from '@/lib/prisma';
+import { env } from '@/env';
 import jwt from 'jsonwebtoken';
-
-const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const REFRESH_TOKEN_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
-const ACCESS_TOKEN_EXPIRY = 15 * 60 * 1000; // 15 minutes
-const VERIFICATION_TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
-const RESET_TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+import { JWTPayload } from '@/types/auth';
 
 export class TokenService {
-  static generateAccessToken(userId: string): string {
-    return jwt.sign({ userId }, JWT_SECRET, {
-      expiresIn: ACCESS_TOKEN_EXPIRY / 1000, // Convert to seconds
-    });
-  }
-
-  static generateRefreshToken(): string {
-    return randomBytes(40).toString('hex');
-  }
-
-  static generateResetToken(): string {
-    return randomBytes(40).toString('hex');
+  static generateAccessToken(payload: JWTPayload): string {
+    return jwt.sign(payload, env.JWT_SECRET, { expiresIn: '24h' });
   }
 
   static async createRefreshToken(userId: string): Promise<string> {
-    const refreshToken = this.generateRefreshToken();
-    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY);
+    const token = jwt.sign({ userId }, env.JWT_SECRET, { expiresIn: '7d' });
 
     await prisma.refreshToken.create({
       data: {
-        token: refreshToken,
+        token,
         userId,
-        expiresAt,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       },
     });
 
-    return refreshToken;
+    return token;
   }
 
   static async createVerificationToken(userId: string): Promise<string> {
-    const token = this.generateResetToken();
-    const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY);
+    const token = jwt.sign({ userId }, env.JWT_SECRET, { expiresIn: '24h' });
 
     await prisma.verificationToken.create({
       data: {
         token,
         userId,
-        expiresAt,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       },
     });
 
@@ -55,14 +37,13 @@ export class TokenService {
   }
 
   static async createPasswordResetToken(userId: string): Promise<string> {
-    const token = this.generateResetToken();
-    const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY);
+    const token = jwt.sign({ userId }, env.JWT_SECRET, { expiresIn: '1h' });
 
     await prisma.passwordResetToken.create({
       data: {
         token,
         userId,
-        expiresAt,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
       },
     });
 

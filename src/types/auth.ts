@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import { UserRole } from '@prisma/client';
 
 export interface JWTPayload {
   userId: string;
   email: string;
+  role: UserRole;
 }
 
 export const RegisterSchema = z.object({
@@ -20,6 +22,7 @@ export const UserSchema = z.object({
   id: z.string().describe('User unique identifier'),
   email: z.string().email().describe('User email address'),
   name: z.string().nullable().describe('User full name'),
+  role: z.nativeEnum(UserRole).describe('User role'),
   emailVerified: z.boolean().optional().describe('Email verification status'),
 }).describe('User information');
 

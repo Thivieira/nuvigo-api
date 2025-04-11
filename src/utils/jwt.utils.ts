@@ -1,10 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { env } from '@/env';
-
-export interface JWTPayload {
-  userId: string;
-  email: string;
-}
+import { JWTPayload } from '@/types/auth';
 
 export const generateToken = (payload: JWTPayload): string => {
   return jwt.sign(payload, env.JWT_SECRET, { expiresIn: '24h' });

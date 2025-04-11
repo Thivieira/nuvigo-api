@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyRequest } from 'fastify';
+import { FastifyInstance, FastifyRequest, RouteHandlerMethod } from 'fastify';
 import { AuthController } from '@/controllers/auth.controller';
 import { AuthService } from '@/services/auth.service';
 import { authenticate } from '@/middleware/auth.middleware';
@@ -293,4 +293,37 @@ export default async function authRoutes(fastify: FastifyInstance) {
     },
     handler: authController.resetPassword.bind(authController),
   });
-} 
+
+  fastify.route({
+    method: 'POST',
+    url: '/change-password',
+    schema: {
+      description: 'Change user password',
+      tags: ['auth'],
+      body: {
+        type: 'object',
+        required: ['oldPassword', 'newPassword'],
+        properties: {
+          oldPassword: { type: 'string' },
+          newPassword: { type: 'string', minLength: 6 }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' }
+          }
+        },
+        400: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        }
+      },
+    },
+    preHandler: authenticate,
+    handler: authController.changePassword.bind(authController) as RouteHandlerMethod,
+  });
+}

@@ -11,8 +11,6 @@ const weatherService = new WeatherService();
 const weatherController = new WeatherController(weatherService, chatService);
 
 export default async function weatherRoutes(fastify: FastifyInstance) {
-  console.log('Registering weather routes');
-
   fastify.route<{
     Querystring: WeatherQuery;
   }>({
