@@ -30,7 +30,7 @@ export default async function chatSessionRoutes(fastify: FastifyInstance) {
       method: 'GET',
       url: '/',
       schema: {
-        description: 'Get all chat sessions for the authenticated user',
+        description: 'Obter todas as sessões de chat do usuário autenticado',
         tags: ['chat-session'],
         security: [{ bearerAuth: [] }],
         response: {
@@ -96,7 +96,7 @@ export default async function chatSessionRoutes(fastify: FastifyInstance) {
       method: 'GET',
       url: '/:sessionId',
       schema: {
-        description: 'Get a specific chat session by ID (includes messages)',
+        description: 'Obter uma sessão de chat específica por ID',
         tags: ['chat-session'],
         security: [{ bearerAuth: [] }],
         params: {
@@ -174,7 +174,7 @@ export default async function chatSessionRoutes(fastify: FastifyInstance) {
       method: 'DELETE',
       url: '/:sessionId',
       schema: {
-        description: 'Delete a specific chat session and all its messages',
+        description: 'Excluir uma sessão de chat específica e todas as suas mensagens',
         tags: ['chat-session'],
         security: [{ bearerAuth: [] }],
         params: {
@@ -219,7 +219,7 @@ export default async function chatSessionRoutes(fastify: FastifyInstance) {
       method: 'GET',
       url: '/:sessionId/chats',
       schema: {
-        description: 'Get all chat messages for a specific session',
+        description: 'Obter todas as mensagens de chat de uma sessão específica',
         tags: ['chat-session'],
         security: [{ bearerAuth: [] }],
         params: {

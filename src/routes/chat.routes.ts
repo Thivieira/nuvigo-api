@@ -19,7 +19,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       method: 'POST',
       url: '/',
       schema: {
-        description: 'Create a new chat message',
+        description: 'Criar uma nova mensagem de chat',
         tags: ['chat-message'],
         security: [{ bearerAuth: [] }],
         body: {
@@ -114,7 +114,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       method: 'PUT',
       url: '/:id',
       schema: {
-        description: 'Update a chat message',
+        description: 'Atualizar uma mensagem de chat',
         tags: ['chat-message'],
         security: [{ bearerAuth: [] }],
         params: {
@@ -222,7 +222,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       method: 'DELETE',
       url: '/:id',
       schema: {
-        description: 'Delete a chat message',
+        description: 'Excluir uma mensagem de chat',
         tags: ['chat-message'],
         security: [{ bearerAuth: [] }],
         params: {

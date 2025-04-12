@@ -11,7 +11,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
     method: 'GET',
     url: '/',
     schema: {
-      description: 'Get all locations for the authenticated user',
+      description: 'Obter todas as localizações do usuário autenticado',
       tags: ['location'],
       security: [{ bearerAuth: [] }],
       response: {
@@ -59,7 +59,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
     method: 'POST',
     url: '/',
     schema: {
-      description: 'Add a new location for the authenticated user',
+      description: 'Adicionar uma nova localização para o usuário autenticado',
       tags: ['location'],
       security: [{ bearerAuth: [] }],
       body: {
@@ -117,7 +117,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
     method: 'PATCH',
     url: '/:id/active',
     schema: {
-      description: 'Set a location as active for the authenticated user',
+      description: 'Definir uma localização como ativa para o usuário autenticado',
       tags: ['location'],
       security: [{ bearerAuth: [] }],
       params: {
@@ -184,7 +184,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
     method: 'DELETE',
     url: '/:id',
     schema: {
-      description: 'Delete a location for the authenticated user',
+      description: 'Excluir uma localização do usuário autenticado',
       tags: ['location'],
       security: [{ bearerAuth: [] }],
       params: {

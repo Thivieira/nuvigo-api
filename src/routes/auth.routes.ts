@@ -12,7 +12,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     method: 'POST',
     url: '/register',
     schema: {
-      description: 'Register a new user',
+      description: 'Registrar um novo usuário',
       tags: ['auth'],
       body: {
         type: 'object',
@@ -59,7 +59,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     method: 'POST',
     url: '/login',
     schema: {
-      description: 'Login with email and password',
+      description: 'Login com email e senha',
       tags: ['auth'],
       body: {
         type: 'object',
@@ -102,7 +102,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     method: 'GET',
     url: '/me',
     schema: {
-      description: 'Get current user information',
+      description: 'Obter informações do usuário atual',
       tags: ['auth'],
       response: {
         200: {
@@ -134,7 +134,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     method: 'POST',
     url: '/refresh',
     schema: {
-      description: 'Refresh access token using refresh token',
+      description: 'Atualizar token de acesso usando token de refresh',
       tags: ['auth'],
       body: {
         type: 'object',
@@ -184,7 +184,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     method: 'POST',
     url: '/logout',
     schema: {
-      description: 'Logout and invalidate refresh token',
+      description: 'Logout e invalidar token de refresh',
       tags: ['auth'],
       body: {
         type: 'object',
@@ -233,7 +233,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     method: 'POST',
     url: '/verify-email',
     schema: {
-      description: 'Verify user email with token',
+      description: 'Verificar email do usuário com token',
       tags: ['auth'],
       body: {
         type: 'object',
@@ -282,7 +282,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     method: 'POST',
     url: '/forgot-password',
     schema: {
-      description: 'Request password reset email',
+      description: 'Solicitar redefinição de senha por email',
       tags: ['auth'],
       body: {
         type: 'object',
@@ -331,7 +331,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     method: 'POST',
     url: '/reset-password',
     schema: {
-      description: 'Reset password with token',
+      description: 'Redefinir senha com token',
       tags: ['auth'],
       body: {
         type: 'object',
@@ -363,7 +363,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     method: 'POST',
     url: '/change-password',
     schema: {
-      description: 'Change user password',
+      description: 'Alterar senha do usuário',
       tags: ['auth'],
       body: {
         type: 'object',

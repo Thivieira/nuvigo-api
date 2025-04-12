@@ -88,7 +88,7 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
       method: 'GET',
       url: '/location',
       schema: {
-        description: 'Get weather information for a specific location',
+        description: 'Obter informações meteorológicas para uma localização específica',
         tags: ['weather'],
         security: [{ bearerAuth: [] }],
         querystring: {
@@ -99,7 +99,7 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
               properties: {
                 location: {
                   type: 'string',
-                  description: 'City name or location string (e.g., "Rio de janeiro")'
+                  description: 'Nome da cidade ou string de localização (ex: "Rio de Janeiro")'
                 }
               }
             },
@@ -108,11 +108,11 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
               properties: {
                 lat: {
                   type: 'string',
-                  description: 'Latitude coordinate'
+                  description: 'Coordenada de latitude'
                 },
                 lon: {
                   type: 'string',
-                  description: 'Longitude coordinate'
+                  description: 'Coordenada de longitude'
                 }
               }
             }
@@ -122,15 +122,15 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
           200: {
             type: 'object',
             properties: {
-              temperature: { type: 'string', description: 'Current temperature' },
-              high: { type: 'string', description: 'High temperature for the day' },
-              low: { type: 'string', description: 'Low temperature for the day' },
-              condition: { type: 'string', description: 'Current weather condition' },
-              precipitation: { type: 'string', description: 'Precipitation probability and intensity' },
-              humidity: { type: 'string', description: 'Current humidity level' },
-              windSpeed: { type: 'string', description: 'Current wind speed' },
-              location: { type: 'string', description: 'Location name' },
-              weatherCode: { type: 'number', description: 'Weather condition code from Tomorrow.io' }
+              temperature: { type: 'string', description: 'Temperatura atual' },
+              high: { type: 'string', description: 'Temperatura máxima do dia' },
+              low: { type: 'string', description: 'Temperatura mínima do dia' },
+              condition: { type: 'string', description: 'Condição meteorológica atual' },
+              precipitation: { type: 'string', description: 'Probabilidade e intensidade de precipitação' },
+              humidity: { type: 'string', description: 'Nível atual de umidade' },
+              windSpeed: { type: 'string', description: 'Velocidade atual do vento' },
+              location: { type: 'string', description: 'Nome da localização' },
+              weatherCode: { type: 'number', description: 'Código da condição meteorológica do Tomorrow.io' }
             }
           },
           400: {

@@ -4,8 +4,8 @@ import { FastifySwaggerUiOptions } from '@fastify/swagger-ui';
 export const swaggerOptions: SwaggerOptions = {
   swagger: {
     info: {
-      title: 'Nuvigo API Documentation',
-      description: 'API documentation for Nuvigo services',
+      title: 'Documentação da API Nuvigo',
+      description: 'Documentação da API para serviços da Nuvigo',
       version: '1.0.0'
     },
     host: 'localhost:3333',
@@ -13,12 +13,12 @@ export const swaggerOptions: SwaggerOptions = {
     consumes: ['application/json'],
     produces: ['application/json'],
     tags: [
-      { name: 'auth', description: 'Authentication endpoints' },
-      { name: 'user', description: 'User management endpoints' },
-      { name: 'chat-session', description: 'Chat session endpoints' },
-      { name: 'chat-message', description: 'Chat message endpoints' },
-      { name: 'weather', description: 'Weather service endpoint' },
-      { name: 'location', description: 'Location management endpoints' }
+      { name: 'auth', description: 'Endpoints de autenticação' },
+      { name: 'user', description: 'Endpoints de gerenciamento de usuários' },
+      { name: 'chat-session', description: 'Endpoints de sessões de chat' },
+      { name: 'chat-message', description: 'Endpoints de mensagens de chat' },
+      { name: 'weather', description: 'Endpoint de serviço de previsão do tempo' },
+      { name: 'location', description: 'Endpoints de gerenciamento de localizações' }
     ],
     securityDefinitions: {
       bearerAuth: {
