@@ -38,11 +38,11 @@ export class AuthController extends BaseController {
         user: result.user
       });
     } catch (error) {
-      if (error instanceof Error && error.message === 'Invalid credentials') {
+      if (error instanceof Error && error.message === 'Invalid email or password') {
         return this.sendError(reply, {
-          error: 'Invalid credentials',
+          error: 'Invalid email or password',
           code: 'INVALID_CREDENTIALS'
-        }, 401);
+        }, 400);
       }
       return this.sendError(reply, this.handleError(error));
     }

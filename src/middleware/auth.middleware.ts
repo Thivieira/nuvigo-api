@@ -48,11 +48,12 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
     request.user = {
       userId: user.id,
       email: user.email,
-      role: decoded.role // Use the role from the token
+      role: user.role
     };
-    console.log('Token verified successfully');
+
+    return;
   } catch (error) {
-    console.error('Token verification failed:', error);
+    console.error('Authentication error:', error);
     return reply.code(401).send({
       error: 'Unauthorized',
       code: 'INVALID_TOKEN',
@@ -62,8 +63,6 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
 };
 
 export const registerAuthMiddleware = (fastify: FastifyInstance) => {
-  fastify.decorateRequest('user', {
-    getter: () => ({ userId: '', email: '', role: 'USER' } as JWTPayload),
-    setter: (value: JWTPayload) => value,
-  });
+  fastify.decorateRequest('user', undefined);
+  fastify.addHook('onRequest', authenticate);
 }; 

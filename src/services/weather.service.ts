@@ -1,11 +1,8 @@
-import { NotFoundException } from '@/exceptions'
-import dayjs, { getTimeOfDay, TIMEZONE } from '@/lib/dayjs';
-import { createOpenAIResponse } from '@/utils/openAI.utils';
+import dayjs from '@/lib/dayjs';
 import { analyzeWeatherData, PromptParams, analyzeDateWithHistory } from '@/utils/language.utils';
 import { getWeatherDescription, formatWeatherDataForResponse } from '@/utils/weather.utils';
 import { env } from '@/env';
 import { ChatService } from "./chat.service";
-import { FastifyReply, FastifyRequest } from 'fastify';
 import axios from 'axios';
 
 interface TimelineRequest {
@@ -21,36 +18,6 @@ interface TimelineRequest {
   timezone?: string;
 }
 
-interface TimelineResponse {
-  data: {
-    timelines: Array<{
-      timestep: string;
-      startTime: string;
-      endTime: string;
-      intervals: Array<{
-        startTime: string;
-        values: {
-          cloudBase: number;
-          cloudCeiling: number | null;
-          cloudCover: number;
-          humidity: number;
-          precipitationIntensity: number;
-          precipitationProbability: number;
-          precipitationType: number;
-          pressureSeaLevel: number;
-          schuurClassification: number;
-          temperature: number;
-          temperatureApparent: number;
-          visibility: number;
-          windDirection: number;
-          windGust: number;
-          windSpeed: number;
-        };
-      }>;
-    }>;
-  };
-}
-
 interface WeatherResponse {
   location: string;
   temperature: string;
@@ -61,6 +28,8 @@ interface WeatherResponse {
   humidity: string;
   windSpeed: string;
   weatherCode: number;
+  naturalResponse?: string;
+  currentTime?: string;
 }
 
 interface Location {
@@ -68,21 +37,6 @@ interface Location {
   coordinates?: [number, number];
   name?: string;
 }
-
-interface WeatherQuery {
-  location: string | Location;
-  language?: string;
-}
-
-// Constants
-const WEATHER_CODE_MAP: Record<number, number> = {
-  1: 1000, // Clear
-  2: 1001, // Partly Cloudy
-  3: 1002, // Cloudy
-  4: 1003, // Rain
-  5: 1004, // Snow
-  6: 1005, // Thunderstorm
-};
 
 const DEFAULT_FIELDS = [
   'temperature',
@@ -589,7 +543,9 @@ export class WeatherService {
         precipitation: `${Math.round(values.precipitationProbability * 100)}%`,
         humidity: `${Math.round(values.humidity * 100)}%`,
         windSpeed: `${Math.round(values.windSpeed)} mph`,
-        weatherCode: values.weatherCode || 1000
+        weatherCode: values.weatherCode || 1000,
+        naturalResponse: naturalResponse,
+        currentTime: dayjs(currentInterval.startTime).format('YYYY-MM-DD HH:mm:ss')
       };
 
       console.log('Final response temperature:', finalWeatherData.temperature);

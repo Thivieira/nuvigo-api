@@ -1,4 +1,4 @@
-import { FastifyRequest } from 'fastify';
+import { FastifyRequest, RouteGenericInterface } from 'fastify';
 import { UserRole } from '@prisma/client';
 
 export interface JWTPayload {
@@ -7,6 +7,6 @@ export interface JWTPayload {
   role: UserRole;
 }
 
-export interface AuthenticatedRequest extends FastifyRequest {
+export interface AuthenticatedRequest<T extends RouteGenericInterface = RouteGenericInterface> extends FastifyRequest<T> {
   user: JWTPayload;
 } 

@@ -1,10 +1,15 @@
 import { z } from 'zod';
 import { UserRole } from '@prisma/client';
+import { FastifyRequest, RouteGenericInterface } from 'fastify';
 
 export interface JWTPayload {
   userId: string;
   email: string;
   role: UserRole;
+}
+
+export interface AuthenticatedRequest<T extends RouteGenericInterface = RouteGenericInterface> extends FastifyRequest<T> {
+  user: JWTPayload;
 }
 
 export const RegisterSchema = z.object({

@@ -4,10 +4,12 @@ import { WeatherService } from '@/services/weather.service';
 import { ChatService } from '@/services/chat.service';
 import { authenticate } from '@/middleware/auth.middleware';
 import { WeatherQuery, WeatherQuerySchema } from '@/types/weather';
-import { JWTPayload } from '@/types/auth';
+import { JWTPayload, AuthenticatedRequest } from '@/types/auth';
 import { weatherRateLimitConfig } from '@/config/rate-limit';
+import { PrismaClient } from '@prisma/client';
 
-const chatService = new ChatService();
+const prisma = new PrismaClient();
+const chatService = new ChatService(prisma);
 const weatherService = new WeatherService();
 const weatherController = new WeatherController(weatherService, chatService);
 
@@ -26,33 +28,40 @@ interface WeatherQueryRequest {
 export default async function weatherRoutes(fastify: FastifyInstance) {
   // Apply weather-specific rate limiting to all weather routes
   fastify.register(async (weatherInstance) => {
+    // Register rate limiting
     weatherInstance.register(require('@fastify/rate-limit'), weatherRateLimitConfig);
 
+    // Apply authentication to all weather routes
+    weatherInstance.addHook('onRequest', authenticate);
+
+    // Get weather information using natural language query
     weatherInstance.route<{
       Querystring: WeatherQuery;
     }>({
       method: 'GET',
       url: '/',
       schema: {
-        description: 'Get weather information using natural language query',
+        description: 'Get weather information based on a natural language query',
         tags: ['weather'],
         security: [{ bearerAuth: [] }],
         querystring: {
           type: 'object',
-          required: ['query', 'location'],
+          required: ['location', 'query'],
           properties: {
-            query: {
-              type: 'string',
-              description: 'Natural language query about weather (e.g., "How will it be on Friday afternoon?")'
-            },
             location: {
               type: 'string',
-              description: 'City name or location string'
+              minLength: 3,
+              description: 'City name or location string (e.g., "Rio de janeiro" or "-22.9255, -43.1784")'
+            },
+            query: {
+              type: 'string',
+              minLength: 3,
+              description: 'Natural language query about weather (e.g., "How will it be on Friday afternoon?")'
             },
             language: {
               type: 'string',
-              description: 'Language code for the response (e.g., "pt-br", "en")',
-              default: 'en'
+              default: 'en',
+              description: 'Language for the response (default: en)'
             }
           }
         },
@@ -60,75 +69,27 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
           200: {
             type: 'object',
             properties: {
-              temperature: { type: 'string', description: 'Current temperature' },
-              high: { type: 'string', description: 'High temperature for the day' },
-              low: { type: 'string', description: 'Low temperature for the day' },
-              condition: { type: 'string', description: 'Current weather condition' },
-              naturalResponse: { type: 'string', description: 'Natural language response to the query' },
-              location: { type: 'string', description: 'Location name' },
-              weatherCode: { type: 'number', description: 'Weather condition code from Tomorrow.io' }
-            }
-          },
-          400: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-              code: { type: 'string' },
-              details: { type: 'object' }
-            }
-          },
-          401: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-              code: { type: 'string' },
-              details: { type: 'object' }
-            }
-          },
-          500: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-              code: { type: 'string' },
-              details: { type: 'object' }
+              weatherData: {
+                type: 'object',
+                properties: {
+                  location: { type: 'string' },
+                  temperature: { type: 'string' },
+                  condition: { type: 'string' },
+                  high: { type: 'string' },
+                  low: { type: 'string' },
+                  precipitation: { type: 'string' },
+                  humidity: { type: 'string' },
+                  windSpeed: { type: 'string' },
+                  weatherCode: { type: 'number' }
+                }
+              },
+              sessionId: { type: 'string' }
             }
           }
         }
       },
-      onRequest: [authenticate],
-      handler: async (
-        request: FastifyRequest<{ Querystring: WeatherQuery }> & { user: JWTPayload },
-        reply: FastifyReply
-      ) => {
-        console.log('Weather request received:', {
-          query: request.query,
-          headers: request.headers,
-          user: request.user
-        });
-
-        try {
-          const result = WeatherQuerySchema.safeParse(request.query);
-          if (!result.success) {
-            const errors = result.error.errors.map(err => ({
-              field: err.path[0],
-              message: err.message
-            }));
-            return reply.status(400).send({ errors });
-          }
-        } catch (error) {
-          return reply.status(400).send({
-            error: error instanceof Error ? error.message : 'Invalid request'
-          });
-        }
-
-        try {
-          const result = await weatherController.getFlexibleWeather(request, reply);
-          console.log('Weather request completed successfully');
-          return result;
-        } catch (error) {
-          console.error('Weather request failed:', error);
-          throw error;
-        }
+      handler: async (request, reply) => {
+        return weatherController.getFlexibleWeather(request, reply);
       }
     });
 

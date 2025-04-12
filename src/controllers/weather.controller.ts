@@ -1,17 +1,20 @@
-import { FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { WeatherService } from '@/services/weather.service';
 import { ChatService } from '@/services/chat.service';
 import { BaseController } from './base.controller';
-import { WeatherQuery } from '@/types/weather';
-import { ErrorResponse } from '@/types/common';
 import { JWTPayload } from '@/types/auth';
+import { WeatherQuery, TimelineRequest } from '@/types/weather';
+import { ChatCreate } from '@/types/chat';
 import { getWeatherDescription } from '@/utils/weather.utils';
-import { CreateChatDto } from '@/types/chat';
+import { AIService } from '@/services/ai.service';
+import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { generateChatTitle } from '@/utils/ai.utils';
 
 export class WeatherController extends BaseController {
   constructor(
     private readonly weatherService: WeatherService,
-    private readonly chatService: ChatService
+    private readonly chatService: ChatService,
+    private readonly aiService: AIService
   ) {
     super();
   }
@@ -32,109 +35,95 @@ export class WeatherController extends BaseController {
   async getFlexibleWeather(
     request: FastifyRequest<{
       Querystring: WeatherQuery;
-    }> & { user: JWTPayload },
+    }>,
     reply: FastifyReply
   ) {
     try {
-      const { location, query, language } = request.query;
-      const userId = request.user.userId; // Extract userId
+      const { location, query, language = 'en' } = request.query;
 
-      const weatherServiceRequest = {
+      // Extract userId from JWT payload
+      const userId = request.user?.userId;
+      if (!userId) {
+        throw new Error('User ID not found in JWT payload');
+      }
+
+      const weatherServiceRequest: TimelineRequest = {
         location: this.prepareLocation(location),
         timesteps: ['1h'],
-        startTime: 'now',
-        endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         fields: [
           'temperature',
+          'weatherCode',
           'humidity',
           'windSpeed',
-          'cloudCover',
-          'precipitationProbability',
-          'uvIndex',
-          'visibility',
-          'pressureSeaLevel',
-          'precipitationIntensity',
-          'precipitationType',
-          'cloudBase',
-          'cloudCeiling',
-          'windDirection',
-          'windGust',
-          'temperatureApparent',
-          'weatherCode',
-          'dewPoint',
-          'freezingRainIntensity',
-          'sleetIntensity',
-          'snowIntensity',
-          'uvHealthConcern',
-          'pressureSurfaceLevel'
-        ],
-        units: 'metric',
-        timezone: 'America/Sao_Paulo'
+          'windDirection'
+        ]
       };
 
       // Fetch weather data and get context-aware response + session ID
-      const { weatherData, sessionId } = await this.weatherService.getFlexibleWeather(
+      const result = await this.weatherService.getFlexibleWeather(
         weatherServiceRequest,
         query,
-        this.chatService, // Pass ChatService instance
-        userId // Pass userId
+        this.chatService,
+        userId
       );
 
       // Prepare chat data
-      const chatData: CreateChatDto = {
-        chatSessionId: sessionId,
-        userId,
+      const chatData: ChatCreate = {
+        chatSessionId: result.sessionId,
         message: query,
-        response: weatherData.naturalResponse,
+        role: 'user',
+        turn: 1,
         metadata: {
-          location,
-          temperature: weatherData.condition.temperature.toString(),
-          condition: getWeatherDescription(weatherData.condition.weatherCode),
-          naturalResponse: weatherData.naturalResponse,
-          weatherData: {
-            temperature: weatherData.temperature,
-            humidity: weatherData.condition.humidity,
-            windSpeed: weatherData.condition.windSpeed,
-            windDirection: weatherData.condition.windDirection,
-            precipitation: weatherData.condition.precipitationProbability,
-            pressure: weatherData.condition.pressureSeaLevel,
-            visibility: weatherData.condition.visibility,
-            cloudCover: weatherData.condition.cloudCover,
-            uvIndex: weatherData.condition.uvIndex,
-            dewPoint: weatherData.condition.dewPoint,
-            freezingRainIntensity: weatherData.condition.freezingRainIntensity,
-            sleetIntensity: weatherData.condition.sleetIntensity,
-            snowIntensity: weatherData.condition.snowIntensity,
-            uvHealthConcern: weatherData.condition.uvHealthConcern,
-            pressureSurfaceLevel: weatherData.condition.pressureSurfaceLevel,
-          },
-        },
+          location: result.weatherData.location,
+          temperature: result.weatherData.temperature,
+          condition: result.weatherData.condition,
+          high: result.weatherData.high,
+          low: result.weatherData.low,
+          precipitation: result.weatherData.precipitation,
+          humidity: result.weatherData.humidity,
+          windSpeed: result.weatherData.windSpeed,
+          weatherCode: result.weatherData.weatherCode.toString()
+        }
       };
 
-      try {
-        // Save the chat message (user query implicitly represented, AI response explicitly saved)
-        await this.chatService.create(chatData);
-        console.log(`Chat entry saved successfully to session ${sessionId} for user ${userId}`);
-      } catch (chatError: any) {
-        // Log error but don't fail the main request if chat logging fails
-        console.error(`Failed to save chat entry to session ${sessionId}:`, chatError);
-      }
+      // Create chat entry
+      await this.chatService.create(userId, chatData);
 
-      // Return the weather data (including the context-aware naturalResponse)
-      return this.sendSuccess(reply, weatherData);
+      // create assistant message
+      await this.chatService.create(userId, {
+        chatSessionId: result.sessionId,
+        message: result.weatherData.naturalResponse || '',
+        role: 'assistant',
+        turn: 2,
+        metadata: {
+          currentTime: result.weatherData.currentTime
+        }
+      });
 
-    } catch (error: any) {
-      // Keep existing error handling
-      if (error instanceof Error && (error.message.includes('Weather data not found') || error.message.includes('Invalid location') || error.message.includes('Invalid temperature data'))) {
-        const errorResponse: ErrorResponse = {
-          error: 'Location or Weather Data Error',
-          code: 'NOT_FOUND',
-          details: { message: error.message },
-        };
-        return this.sendError(reply, errorResponse, 404);
-      }
+      const messages: ChatCompletionMessageParam[] = [
+        {
+          role: 'user',
+          content: query
+        },
+        {
+          role: 'assistant',
+          content: result.weatherData.naturalResponse || ''
+        }
+      ];
 
-      console.error('Error in getFlexibleWeather Controller:', error);
+      // Generate title using utility function
+      const title = await generateChatTitle(messages);
+
+      // Update session with generated title
+      await this.chatService.updateSession(result.sessionId, {
+        title
+      });
+
+      return this.sendSuccess(reply, result);
+    } catch (error) {
+      console.log('Error in getFlexibleWeather:', error);
       return this.sendError(reply, this.handleError(error));
     }
   }

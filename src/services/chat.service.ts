@@ -295,4 +295,30 @@ export class ChatService {
       }
     });
   }
+
+  async updateSession(sessionId: string, data: any): Promise<ChatSession> {
+    return this.prisma.chatSession.update({
+      where: { id: sessionId },
+      data: data
+    });
+  }
+
+  async getSessionById(sessionId: string): Promise<ChatSession | null> {
+    return this.prisma.chatSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        chats: true
+      }
+    });
+  }
+
+  async getSessionsByUserId(userId: string): Promise<ChatSession[]> {
+    return this.prisma.chatSession.findMany({
+      where: { userId },
+      include: {
+        chats: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
 } 
