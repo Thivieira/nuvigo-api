@@ -1,7 +1,6 @@
-import { PrismaClient, Location } from '@prisma/client';
+import { Location } from '@prisma/client';
 import { HTTPException } from '../exceptions';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export class LocationService {
   static async getUserLocations(userId: string): Promise<Location[]> {

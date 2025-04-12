@@ -2,7 +2,6 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { LocationService } from '../services/location.service';
 import { HTTPException } from '../exceptions';
 import { JWTPayload } from '../types/auth';
-import axios from 'axios';
 
 interface AddLocationRequest {
   name: string;

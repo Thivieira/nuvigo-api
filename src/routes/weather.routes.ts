@@ -3,12 +3,10 @@ import { WeatherController } from '@/controllers/weather.controller';
 import { WeatherService } from '@/services/weather.service';
 import { ChatService } from '@/services/chat.service';
 import { authenticate } from '@/middleware/auth.middleware';
-import { WeatherQuery, WeatherQuerySchema } from '@/types/weather';
-import { JWTPayload, AuthenticatedRequest } from '@/types/auth';
+import { WeatherQuery } from '@/types/weather';
 import { weatherRateLimitConfig } from '@/config/rate-limit';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
 const chatService = new ChatService(prisma);
 const weatherService = new WeatherService();
 const weatherController = new WeatherController(weatherService, chatService);

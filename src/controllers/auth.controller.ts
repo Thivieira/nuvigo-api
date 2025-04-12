@@ -1,7 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { AuthService } from '@/services/auth.service';
 import { RegisterDto, LoginDto } from '@/types/auth';
-import { TokenService } from '@/services/token.service';
 import { BaseController } from '@/controllers/base.controller';
 
 export class AuthController extends BaseController {

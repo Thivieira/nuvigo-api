@@ -1,4 +1,4 @@
-import { PrismaClient, Chat, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { ChatCreate, ChatUpdate, ChatWithSessionAndUser } from '@/types/chat';
 
 export class ChatService {

@@ -3,15 +3,7 @@ import { ChatService } from '@/services/chat.service';
 import { ChatSessionService } from '@/services/chat-session.service';
 import { WeatherService } from '@/services/weather.service';
 import { ChatCreate, ChatUpdate } from '@/types/chat';
-import { getWeatherDescription } from '@/utils/weather.utils';
-import { analyzeLocation } from '@/utils/location.utils';
-import { JWTPayload, AuthenticatedRequest } from '@/types/auth';
-import { WeatherResponse } from '@/types/weather';
-
-interface RequestWithUser extends FastifyRequest {
-  user: JWTPayload;
-  body: ChatCreate;
-}
+import { JWTPayload } from '@/types/auth';
 
 export class ChatController {
   constructor(
