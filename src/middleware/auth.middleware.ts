@@ -10,16 +10,9 @@ declare module 'fastify' {
 }
 
 export const authenticate = async (request: FastifyRequest, reply: FastifyReply) => {
-  console.log('Auth middleware called:', {
-    path: request.url,
-    method: request.method,
-    headers: request.headers
-  });
-
   try {
     const authHeader = request.headers.authorization;
     if (!authHeader) {
-      console.log('No authorization header found');
       return reply.code(401).send({
         error: 'Unauthorized',
         code: 'AUTH_REQUIRED',
@@ -28,7 +21,7 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
     }
 
     const token = authHeader.replace('Bearer ', '');
-    console.log('Token found, attempting to verify');
+
     const decoded = verifyToken(token) as JWTPayload;
 
     // Get the user from the database

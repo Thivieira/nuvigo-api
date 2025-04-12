@@ -208,7 +208,6 @@ export class AuthService {
         role: true,
       },
     });
-    console.log('user', user);
     return user;
   }
 
