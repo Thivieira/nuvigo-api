@@ -141,18 +141,47 @@ export class WeatherService {
   }
 
   private checkRateLimits(headers: any) {
+    // Helper function to safely parse header values
+    const parseHeader = (value: string | undefined, defaultValue: number): number => {
+      if (!value) return defaultValue;
+      const parsed = parseInt(value);
+      return isNaN(parsed) ? defaultValue : parsed;
+    };
+
+    // Get the web app rate limit and normalize it to our expected range
+    const webAppLimit = parseHeader(headers['x-ratelimit-remaining-web-app'], this.rateLimits.daily);
+    // Normalize the web app limit (500000) to our expected range (500)
+    const normalizedWebAppLimit = Math.min(Math.round(webAppLimit / 1000), this.rateLimits.daily);
+
+    // Get unique plan limits (deduplicate by plan ID)
+    const planLimitsMap = new Map<string, number>();
+    Object.entries(headers)
+      .filter(([key]) => key.startsWith('x-ratelimit-remaining-plan-'))
+      .forEach(([key, value]) => {
+        const planId = key.split('-').pop();
+        if (planId) {
+          const limit = parseHeader(value as string, this.rateLimits.hourly);
+          if (!planLimitsMap.has(planId) || limit < (planLimitsMap.get(planId) || 0)) {
+            planLimitsMap.set(planId, limit);
+          }
+        }
+      });
+
+    const planLimits = Array.from(planLimitsMap.values());
+    const minPlanLimit = planLimits.length > 0 ? Math.min(...planLimits) : this.rateLimits.hourly;
+
     const limits = {
       daily: {
-        limit: headers['x-ratelimit-limit-day'] || this.rateLimits.daily,
-        remaining: headers['x-ratelimit-remaining-day']
+        limit: this.rateLimits.daily,
+        remaining: normalizedWebAppLimit
       },
       hourly: {
-        limit: headers['x-ratelimit-limit-hour'] || this.rateLimits.hourly,
-        remaining: headers['x-ratelimit-remaining-hour']
+        limit: this.rateLimits.hourly,
+        remaining: minPlanLimit
       },
       perSecond: {
-        limit: headers['x-ratelimit-limit-second'] || this.rateLimits.perSecond,
-        remaining: headers['x-ratelimit-remaining-second']
+        limit: this.rateLimits.perSecond,
+        remaining: this.rateLimits.perSecond // We'll use the default for per-second limits
       }
     };
 
@@ -161,40 +190,75 @@ export class WeatherService {
       daily: {
         remaining: limits.daily.remaining,
         limit: limits.daily.limit,
-        percentage: limits.daily.remaining ?
-          Math.round((parseInt(limits.daily.remaining) / parseInt(limits.daily.limit)) * 100) :
-          'unknown'
+        percentage: Math.round((limits.daily.remaining / limits.daily.limit) * 100)
       },
       hourly: {
         remaining: limits.hourly.remaining,
         limit: limits.hourly.limit,
-        percentage: limits.hourly.remaining ?
-          Math.round((parseInt(limits.hourly.remaining) / parseInt(limits.hourly.limit)) * 100) :
-          'unknown'
+        percentage: Math.round((limits.hourly.remaining / limits.hourly.limit) * 100)
       },
       perSecond: {
         remaining: limits.perSecond.remaining,
         limit: limits.perSecond.limit,
-        percentage: limits.perSecond.remaining ?
-          Math.round((parseInt(limits.perSecond.remaining) / parseInt(limits.perSecond.limit)) * 100) :
-          'unknown'
+        percentage: Math.round((limits.perSecond.remaining / limits.perSecond.limit) * 100)
       }
     };
 
-    console.log('Rate Limits Status:', status);
+    console.log('Rate Limits Status:', JSON.stringify(status, null, 2));
 
-    // Check if we're close to any limits
+    // Group plans by their remaining limits
+    const groupedPlans = Array.from(planLimitsMap.entries()).reduce((acc, [planId, limit]) => {
+      if (!acc[limit]) {
+        acc[limit] = [];
+      }
+      acc[limit].push(planId);
+      return acc;
+    }, {} as Record<number, string[]>);
+
+    // Sort groups by limit (ascending)
+    const sortedGroups = Object.entries(groupedPlans)
+      .sort(([a], [b]) => parseInt(a) - parseInt(b))
+      .slice(0, 3); // Show only the 3 most restrictive groups
+
+    // Log grouped plan limits
+    if (sortedGroups.length > 0) {
+      console.debug('Plan Limits by Group:', sortedGroups.map(([limit, planIds]) => ({
+        remaining: parseInt(limit),
+        percentage: Math.round((parseInt(limit) / this.rateLimits.hourly) * 100),
+        planCount: planIds.length,
+        plans: planIds.map(id => `x-ratelimit-remaining-plan-${id}`)
+      })));
+    }
+
+    // Check if we're close to any limits and provide actionable warnings
     const warnings = [];
-    if (limits.daily.remaining && parseInt(limits.daily.remaining) < 50)
-      warnings.push(`Daily limit is running low (${limits.daily.remaining}/${limits.daily.limit})`);
-    if (limits.hourly.remaining && parseInt(limits.hourly.remaining) < 5)
-      warnings.push(`Hourly limit is running low (${limits.hourly.remaining}/${limits.hourly.limit})`);
-    if (limits.perSecond.remaining && parseInt(limits.perSecond.remaining) < 1)
-      warnings.push(`Per-second limit is running low (${limits.perSecond.remaining}/${limits.perSecond.limit})`);
+    if (limits.daily.remaining < 100) {
+      warnings.push(`Daily limit is running low (${limits.daily.remaining}/${limits.daily.limit}) - Consider reducing API calls`);
+    }
+    if (limits.hourly.remaining < 5) {
+      const criticalPlans = sortedGroups.filter(([limit]) => parseInt(limit) < 5);
+      const planCount = criticalPlans.reduce((sum, [_, ids]) => sum + ids.length, 0);
+      warnings.push(`Hourly limit is running low (${limits.hourly.remaining}/${limits.hourly.limit}) - ${planCount} plan(s) affected`);
+    }
+    if (limits.perSecond.remaining < 1) {
+      warnings.push(`Per-second limit is running low (${limits.perSecond.remaining}/${limits.perSecond.limit}) - Consider implementing request queuing`);
+    }
 
     if (warnings.length > 0) {
       console.warn('Rate Limit Warnings:', warnings);
     }
+
+    // Log summary of all plans
+    const planSummary = {
+      totalPlans: planLimitsMap.size,
+      minLimit: Math.min(...planLimits),
+      maxLimit: Math.max(...planLimits),
+      averageLimit: Math.round(planLimits.reduce((a, b) => a + b, 0) / planLimits.length),
+      criticalPlans: Object.entries(groupedPlans)
+        .filter(([limit]) => parseInt(limit) < 5)
+        .reduce((sum, [_, ids]) => sum + ids.length, 0)
+    };
+    console.debug('Plan Limits Summary:', planSummary);
   }
 
   private checkTokenUsage(headers: any) {
