@@ -29,7 +29,9 @@ export const WeatherConditionSchema = z.object({
 }).describe('Weather conditions for a specific location');
 
 export const LocationSchema = z.object({
-  name: z.string(),
+  name: z.string().optional(),
+  type: z.literal('Point').optional(),
+  coordinates: z.tuple([z.number(), z.number()]).optional(),
 }).describe('Location information');
 
 export const WeatherDataSchema = z.object({
@@ -86,9 +88,10 @@ export const TimelineRequestSchema = z.object({
   location: z.union([
     z.string(),
     z.object({
-      type: z.literal('Point'),
-      coordinates: z.tuple([z.number(), z.number()]),
-    })
+      type: z.literal('Point').optional(),
+      coordinates: z.tuple([z.number(), z.number()]).optional(),
+      name: z.string().optional()
+    }).strict()
   ]),
   timesteps: z.array(z.string()),
   startTime: z.string(),
@@ -110,7 +113,10 @@ export type TimelineWeatherValues = z.infer<typeof TimelineWeatherValuesSchema>;
 export type TimelineInterval = z.infer<typeof TimelineIntervalSchema>;
 export type Timeline = z.infer<typeof TimelineSchema>;
 export type TimelineResponse = z.infer<typeof TimelineResponseSchema>;
-export type TimelineRequest = z.infer<typeof TimelineRequestSchema>;
+export type TimelineRequest = z.infer<typeof TimelineRequestSchema> & {
+  units?: string;
+  timezone?: string;
+};
 export type WeatherQuery = z.infer<typeof WeatherQuerySchema>;
 
 // Route Handler Types

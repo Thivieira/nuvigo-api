@@ -1,53 +1,55 @@
 import { prisma } from '@/lib/prisma';
 import { env } from '@/env';
-import jwt from 'jsonwebtoken';
+import { sign, verify } from 'jsonwebtoken';
+import dayjs from '@/lib/dayjs';
 import { JWTPayload } from '@/types/auth';
 
 export class TokenService {
+  private static readonly REFRESH_TOKEN_EXPIRY_DAYS = 7;
+  private static readonly VERIFICATION_TOKEN_EXPIRY_HOURS = 24;
+  private static readonly RESET_TOKEN_EXPIRY_HOURS = 1;
+
   static generateAccessToken(payload: JWTPayload): string {
-    return jwt.sign(payload, env.JWT_SECRET, { expiresIn: '24h' });
+    return sign(payload, env.JWT_SECRET, { expiresIn: '24h' });
   }
 
   static async createRefreshToken(userId: string): Promise<string> {
-    const token = jwt.sign({ userId }, env.JWT_SECRET, { expiresIn: '7d' });
-
-    await prisma.refreshToken.create({
+    const token = sign({ userId }, env.JWT_SECRET, { expiresIn: '7d' });
+    const refreshToken = await prisma.refreshToken.create({
       data: {
         token,
         userId,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        expiresAt: dayjs().add(TokenService.REFRESH_TOKEN_EXPIRY_DAYS, 'day').toDate(),
       },
     });
 
-    return token;
+    return refreshToken.token;
   }
 
   static async createVerificationToken(userId: string): Promise<string> {
-    const token = jwt.sign({ userId }, env.JWT_SECRET, { expiresIn: '24h' });
-
-    await prisma.verificationToken.create({
+    const token = sign({ userId }, env.JWT_SECRET, { expiresIn: '24h' });
+    const verificationToken = await prisma.verificationToken.create({
       data: {
         token,
         userId,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        expiresAt: dayjs().add(TokenService.VERIFICATION_TOKEN_EXPIRY_HOURS, 'hour').toDate(),
       },
     });
 
-    return token;
+    return verificationToken.token;
   }
 
   static async createPasswordResetToken(userId: string): Promise<string> {
-    const token = jwt.sign({ userId }, env.JWT_SECRET, { expiresIn: '1h' });
-
-    await prisma.passwordResetToken.create({
+    const token = sign({ userId }, env.JWT_SECRET, { expiresIn: '1h' });
+    const resetToken = await prisma.passwordResetToken.create({
       data: {
         token,
         userId,
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+        expiresAt: dayjs().add(TokenService.RESET_TOKEN_EXPIRY_HOURS, 'hour').toDate(),
       },
     });
 
-    return token;
+    return resetToken.token;
   }
 
   static async validateRefreshToken(token: string): Promise<string | null> {
@@ -55,14 +57,7 @@ export class TokenService {
       where: { token },
     });
 
-    if (!refreshToken) {
-      return null;
-    }
-
-    if (refreshToken.expiresAt < new Date()) {
-      await prisma.refreshToken.delete({
-        where: { id: refreshToken.id },
-      });
+    if (!refreshToken || dayjs().isAfter(refreshToken.expiresAt)) {
       return null;
     }
 
@@ -74,14 +69,7 @@ export class TokenService {
       where: { token },
     });
 
-    if (!verificationToken) {
-      return null;
-    }
-
-    if (verificationToken.expiresAt < new Date()) {
-      await prisma.verificationToken.delete({
-        where: { id: verificationToken.id },
-      });
+    if (!verificationToken || dayjs().isAfter(verificationToken.expiresAt)) {
       return null;
     }
 
@@ -93,14 +81,7 @@ export class TokenService {
       where: { token },
     });
 
-    if (!resetToken) {
-      return null;
-    }
-
-    if (resetToken.expiresAt < new Date()) {
-      await prisma.passwordResetToken.delete({
-        where: { id: resetToken.id },
-      });
+    if (!resetToken || dayjs().isAfter(resetToken.expiresAt)) {
       return null;
     }
 

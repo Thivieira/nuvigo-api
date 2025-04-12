@@ -45,15 +45,15 @@ async function buildMessagesWithHistory(
       2. Maintain a professional but accessible tone.
       3. Avoid mentioning specific technical numbers (like exact percentages) unless essential.
       4. For questions about rain:
-         - Probability 0%: No rain.
-         - Probability 1-30%: Unlikely to rain.
-         - Probability 31-70%: Might rain.
-         - Probability 71-99%: Probably going to rain.
-         - Probability 100%: Definitely going to rain.
+        - Probability 0%: No rain.
+        - Probability 1-30%: Unlikely to rain.
+        - Probability 31-70%: Might rain.
+        - Probability 71-99%: Probably going to rain.
+        - Probability 100%: Definitely going to rain.
       5. Use natural terms:
-         - Instead of "wind speed 1.4 km/h", say "light wind" or "little wind".
-         - Instead of "humidity 75%", say "moderate humidity" or "humid air".
-         - Instead of "cloud cover 69%", say "partly cloudy" or "some clouds".
+        - Instead of "wind speed 1.4 km/h", say "light wind" or "little wind".
+        - Instead of "humidity 75%", say "moderate humidity" or "humid air".
+        - Instead of "cloud cover 69%", say "partly cloudy" or "some clouds".
       6. Be concise and direct.
       7. Maintain a neutral, informative tone.
       8. If the question is about rain, start the response with rain info.
@@ -78,12 +78,12 @@ async function buildMessagesWithHistory(
 
   const historyMessages: OpenAI.Chat.ChatCompletionMessageParam[] = history.flatMap((chat): OpenAI.Chat.ChatCompletionMessageParam[] => [
     { role: 'user', content: chat.message },
-    { role: 'assistant', content: chat.response },
+    { role: 'assistant', content: chat.message }
   ]);
 
   const newUserMessage: OpenAI.Chat.ChatCompletionUserMessageParam = {
     role: 'user',
-    content: params.query
+    content: query
   };
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
@@ -92,7 +92,6 @@ async function buildMessagesWithHistory(
     newUserMessage,
   ];
 
-  console.log('Generated messages for AI:', JSON.stringify(messages, null, 2));
   return messages;
 }
 
@@ -100,7 +99,7 @@ export async function detectLanguage(query: string): Promise<string> {
   const prompt = `Detect the language of the following query and return ONLY the language code (e.g., 'pt', 'en', 'es', 'fr'): "${query}"`;
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'user', content: prompt }];
   const response = await createOpenAIResponse(messages);
-  return response.trim().toLowerCase();
+  return response.choices[0].message.content?.trim().toLowerCase() || 'en';
 }
 
 export async function generateChatTitle(query: string): Promise<string> {
@@ -113,7 +112,7 @@ export async function generateChatTitle(query: string): Promise<string> {
 
   try {
     const titleResponse = await createOpenAIResponse([{ role: 'user', content: titlePrompt }]);
-    return titleResponse.trim();
+    return titleResponse.choices[0].message.content?.trim() || 'Weather Query';
   } catch (error) {
     console.error('Error generating chat title:', error);
     // Fallback to a generic title if AI generation fails
@@ -126,35 +125,25 @@ export async function analyzeWeatherData(
   chatService: ChatService,
   userId: string
 ): Promise<WeatherAnalysis> {
-  console.log('Starting weather analysis with context:', JSON.stringify(params, null, 2));
-
-  // Generate a title for the chat session based on the user's query
   const chatTitle = await generateChatTitle(params.query);
-  console.log('Generated chat title:', chatTitle);
-
   const session = await chatService.findOrCreateActiveSession(userId, chatTitle);
-  const sessionId = session.id;
+  const sessionData = await chatService.findSessionById(session.id);
 
-  const sessionData = await chatService.findSessionById(sessionId);
-  const history: Chat[] = sessionData?.chats ?? [];
+  if (!sessionData) {
+    throw new Error('Session not found');
+  }
 
-  // Analyze the date considering chat history
-  const dateAnalysis = await analyzeDateWithHistory(params.query, history);
-  console.log('Date analysis with history:', dateAnalysis);
-
+  const history = sessionData.chats;
   const language = await detectLanguage(params.query);
-  console.log('Detected language:', language);
-
   const messages = await buildMessagesWithHistory(params, history, language);
 
   const response = await createOpenAIResponse(messages);
-  console.log('Raw AI response with context:', response);
+  const content = response.choices[0].message?.content;
+  const naturalResponse = content ? String(content).replace(/^\s+|\s+$/g, '') : '';
 
   return {
-    naturalResponse: response.trim(),
-    analyzedTemperature: params.temperature,
-    sessionId: sessionId,
-    dateAnalysis: dateAnalysis
+    naturalResponse,
+    sessionId: session.id
   };
 }
 
@@ -164,7 +153,7 @@ export async function analyzeWeatherData(
 export async function analyzeDateWithHistory(query: string, history: Chat[]): Promise<string> {
   // Format chat history for context
   const historyContext = history.map(chat => {
-    return `User: ${chat.message}\nAssistant: ${chat.response}`;
+    return `User: ${chat.message}\nAssistant: ${chat.message}`;
   }).join('\n\n');
 
   const dateAnalysisPrompt = `
@@ -185,10 +174,9 @@ export async function analyzeDateWithHistory(query: string, history: Chat[]): Pr
   `;
 
   try {
-    console.log('Sending date analysis with history prompt to AI');
     const dateAnalysisResponse = await createOpenAIResponse([{ role: 'user', content: dateAnalysisPrompt }]);
-    console.log('Date analysis with history response:', dateAnalysisResponse);
-    return dateAnalysisResponse.trim();
+    const content = dateAnalysisResponse.choices[0].message?.content;
+    return content ? String(content).replace(/^\s+|\s+$/g, '') : 'current';
   } catch (error) {
     console.error('Error analyzing date with history:', error);
     return 'current';

@@ -1,5 +1,16 @@
-import { PrismaClient } from '@prisma/client';
-import { SessionWithChats } from '@/types/chat';
+import { PrismaClient, ChatSession, Chat } from '@prisma/client';
+import dayjs from '@/lib/dayjs';
+
+const SESSION_EXPIRY_HOURS = 24;
+
+type SessionWithChats = ChatSession & {
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+  };
+  chats: Chat[];
+};
 
 export class ChatSessionService {
   constructor(private prisma: PrismaClient) { }
@@ -15,13 +26,13 @@ export class ChatSessionService {
           select: {
             id: true,
             email: true,
-            name: true,
-          },
+            name: true
+          }
         },
         chats: true
       },
       orderBy: { createdAt: 'desc' }
-    }) as Promise<SessionWithChats[]>;
+    });
   }
 
   /**
@@ -35,12 +46,12 @@ export class ChatSessionService {
           select: {
             id: true,
             email: true,
-            name: true,
-          },
+            name: true
+          }
         },
         chats: true
       }
-    }) as Promise<SessionWithChats | null>;
+    });
   }
 
   /**
@@ -50,19 +61,19 @@ export class ChatSessionService {
     return this.prisma.chatSession.create({
       data: {
         userId,
-        title: title || `Chat Session ${new Date().toLocaleString()}`
+        title: title || `Chat Session ${dayjs().format('YYYY-MM-DD HH:mm:ss')}`
       },
       include: {
         user: {
           select: {
             id: true,
             email: true,
-            name: true,
-          },
+            name: true
+          }
         },
         chats: true
       }
-    }) as Promise<SessionWithChats>;
+    });
   }
 
   /**
@@ -86,12 +97,12 @@ export class ChatSessionService {
           select: {
             id: true,
             email: true,
-            name: true,
-          },
+            name: true
+          }
         },
         chats: true
       }
-    }) as Promise<SessionWithChats>;
+    });
   }
 
   /**
@@ -99,53 +110,40 @@ export class ChatSessionService {
    * or creates a new one if no suitable session exists.
    */
   async findOrCreateActiveSession(userId: string): Promise<SessionWithChats> {
-    const MAX_SESSION_MESSAGES = 50;
-    const SESSION_EXPIRY_HOURS = 24;
+    const expiryTime = dayjs().subtract(SESSION_EXPIRY_HOURS, 'hour').toDate();
 
-    // First verify if the user exists
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true }
-    });
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    // Find the most recent active session
-    const recentSession = await this.prisma.chatSession.findFirst({
+    // Try to find an active session
+    const activeSession = await this.prisma.chatSession.findFirst({
       where: {
-        userId: userId,
+        userId,
         createdAt: {
-          gte: new Date(Date.now() - SESSION_EXPIRY_HOURS * 60 * 60 * 1000)
+          gte: expiryTime
         }
       },
       include: {
-        chats: {
-          orderBy: { createdAt: 'desc' },
-          take: 1
-        }
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true
+          }
+        },
+        chats: true
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    if (recentSession) {
-      const messageCount = await this.prisma.chat.count({
-        where: { chatSessionId: recentSession.id }
-      });
-
-      if (messageCount < MAX_SESSION_MESSAGES) {
-        return recentSession as SessionWithChats;
-      }
+    if (activeSession) {
+      return activeSession;
     }
 
-    // Create a new session if needed
+    // If no active session exists, create a new one
     return this.createSession(userId);
   }
 
   /**
- * Gets all chat messages for a specific session.
- */
+   * Gets all chat messages for a specific session.
+   */
   async getChatsBySessionId(sessionId: string): Promise<Chat[]> {
     return this.prisma.chat.findMany({
       where: { chatSessionId: sessionId },

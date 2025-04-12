@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 declare module 'fastify' {
   interface FastifyRequest {
-    user?: JWTPayload;
+    user: JWTPayload;
   }
 }
 

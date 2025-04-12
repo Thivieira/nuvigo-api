@@ -4,19 +4,9 @@ import { getWeatherDescription, formatWeatherDataForResponse } from '@/utils/wea
 import { env } from '@/env';
 import { ChatService } from "./chat.service";
 import axios from 'axios';
+import { TimelineRequest } from '@/types/weather';
 
-interface TimelineRequest {
-  location: string | {
-    type: 'Point';
-    coordinates: [number, number];
-  };
-  fields: string[];
-  timesteps: string[];
-  startTime: string;
-  endTime: string;
-  units?: string;
-  timezone?: string;
-}
+
 
 interface WeatherResponse {
   location: string;
@@ -78,7 +68,7 @@ const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000; // 1 second
 
 // Helper functions
-function formatLocationParam(location: string | Location): string {
+function formatLocationParam(location: string | { type?: 'Point'; coordinates?: [number, number]; name?: string }): string {
   if (typeof location === 'string') {
     const detectIfLocationIsGeo = location.includes(',');
     if (detectIfLocationIsGeo) {
@@ -428,7 +418,9 @@ export class WeatherService {
       const queryTime = dayjs();
       console.log('Query time:', queryTime.format('YYYY-MM-DD HH:mm:ss'));
 
-      const locationParam = formatLocationParam(request.location);
+      const location = request.location as string | { type?: 'Point'; coordinates?: [number, number]; name?: string };
+
+      const locationParam = formatLocationParam(location);
       console.log('Location parameter:', locationParam);
 
       // Get the chat session and history first

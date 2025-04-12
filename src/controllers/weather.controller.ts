@@ -6,6 +6,7 @@ import { WeatherQuery, TimelineRequest } from '@/types/weather';
 import { ChatCreate } from '@/types/chat';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { generateChatTitle } from '@/utils/ai.utils';
+import dayjs from '@/lib/dayjs';
 
 export class WeatherController extends BaseController {
   constructor(
@@ -15,16 +16,18 @@ export class WeatherController extends BaseController {
     super();
   }
 
-  prepareLocation(location: string): string {
-    const detectIfLocationIsGeo = location.includes(',');
-    if (detectIfLocationIsGeo) {
-      const coordinates = location.split(',').map(coord => {
-        const num = parseFloat(coord.trim());
-        return num.toFixed(4);
-      });
-      return coordinates.join(', ');
+  prepareLocation(location: string): string | { type: 'Point'; coordinates: [number, number] } {
+    if (location.includes(',')) {
+      const [lat, lon] = location.split(',').map(coord => parseFloat(coord.trim()));
+      if (isNaN(lat) || isNaN(lon)) {
+        throw new Error('Invalid coordinates format');
+      }
+      const point: { type: 'Point'; coordinates: [number, number] } = {
+        type: 'Point',
+        coordinates: [lon, lat]
+      };
+      return point;
     }
-
     return location;
   }
 
@@ -43,19 +46,20 @@ export class WeatherController extends BaseController {
         throw new Error('User ID not found in JWT payload');
       }
 
+      const now = dayjs();
+      const preparedLocation = this.prepareLocation(location);
       const weatherServiceRequest: TimelineRequest = {
-        location: this.prepareLocation(location),
-        timesteps: ['1h'],
-        startTime: new Date().toISOString(),
-        endTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        location: preparedLocation,
+        startTime: now.toISOString(),
+        endTime: now.add(24, 'hour').toISOString(),
+        timesteps: ['1h'] as const,
         fields: [
           'temperature',
-          'weatherCode',
           'humidity',
           'windSpeed',
           'windDirection'
-        ]
-      };
+        ] as const
+      } as TimelineRequest;
 
       // Fetch weather data and get context-aware response + session ID
       const result = await this.weatherService.getFlexibleWeather(

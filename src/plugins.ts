@@ -11,7 +11,7 @@ import { JWTPayload } from '@/types/auth';
 
 declare module 'fastify' {
   interface FastifyRequest {
-    user?: JWTPayload;
+    user: JWTPayload;
   }
 }
 

@@ -1,8 +1,9 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest } from 'fastify';
 import { UserController } from '@/controllers/user.controller';
 import { UserService } from '@/services/user.service';
 import { authenticate } from '@/middleware/auth.middleware';
 import { isAdmin } from '@/middleware/role.middleware';
+import { AuthenticatedRequest } from '@/types/auth';
 
 const userService = new UserService();
 const userController = new UserController(userService);
@@ -212,9 +213,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
           }
         }
       },
-      preHandler: async (request, reply) => {
+      preHandler: async (request: AuthenticatedRequest<{ Params: { id?: string } }>, reply) => {
         const userId = request.params.id;
-        if (userId && userId !== request.user.id) {
+        if (userId && userId !== request.user.userId) {
           await isAdmin(request, reply);
         }
       },
@@ -262,9 +263,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
           }
         }
       },
-      preHandler: async (request, reply) => {
+      preHandler: async (request: AuthenticatedRequest<{ Params: { id?: string } }>, reply) => {
         const userId = request.params.id;
-        if (userId && userId !== request.user.id) {
+        if (userId && userId !== request.user.userId) {
           await isAdmin(request, reply);
         }
       },

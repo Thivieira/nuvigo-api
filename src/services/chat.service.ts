@@ -81,4 +81,91 @@ export class ChatService {
       where: { id: chatId }
     });
   }
+
+  async getChatById(id: string): Promise<ChatWithSessionAndUser> {
+    const chat = await this.prisma.chat.findUnique({
+      where: { id },
+      include: {
+        chatSession: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!chat) {
+      throw new Error('Chat not found');
+    }
+
+    return chat as ChatWithSessionAndUser;
+  }
+
+  async getChatsBySessionId(sessionId: string): Promise<ChatWithSessionAndUser[]> {
+    const chats = await this.prisma.chat.findMany({
+      where: { chatSessionId: sessionId },
+      include: {
+        chatSession: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { turn: 'asc' }
+    });
+
+    return chats as ChatWithSessionAndUser[];
+  }
+
+  async findOrCreateActiveSession(userId: string, title?: string): Promise<{ id: string }> {
+    const existingSession = await this.prisma.chatSession.findFirst({
+      where: {
+        userId
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    if (existingSession) {
+      return { id: existingSession.id };
+    }
+
+    const newSession = await this.prisma.chatSession.create({
+      data: {
+        userId,
+        title: title || 'New Chat'
+      }
+    });
+
+    return { id: newSession.id };
+  }
+
+  async findSessionById(id: string) {
+    return this.prisma.chatSession.findUnique({
+      where: { id },
+      include: {
+        chats: {
+          orderBy: { turn: 'asc' }
+        }
+      }
+    });
+  }
+
+  async updateSession(id: string, data: { title?: string }) {
+    return this.prisma.chatSession.update({
+      where: { id },
+      data
+    });
+  }
 } 
