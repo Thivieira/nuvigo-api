@@ -18,7 +18,7 @@ export class UserController extends BaseController {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           return this.sendError(reply, {
-            error: 'Email already exists',
+            error: 'Email já existe',
             code: 'EMAIL_EXISTS',
             details: { email: request.body.email }
           }, 400);
@@ -35,7 +35,7 @@ export class UserController extends BaseController {
         return this.sendError(reply, {
           error: 'Forbidden',
           code: 'FORBIDDEN',
-          details: { message: 'Only administrators can list all users' }
+          details: { message: 'Apenas administradores podem listar todos os usuários' }
         }, 403);
       }
 
@@ -53,7 +53,7 @@ export class UserController extends BaseController {
 
       if (!user) {
         return this.sendError(reply, {
-          error: 'User not found',
+          error: 'Usuário não encontrado',
           code: 'USER_NOT_FOUND',
           details: { id: userId }
         }, 404);
@@ -64,7 +64,7 @@ export class UserController extends BaseController {
         return this.sendError(reply, {
           error: 'Forbidden',
           code: 'FORBIDDEN',
-          details: { message: 'You can only view your own profile' }
+          details: { message: 'Você só pode visualizar seu próprio perfil' }
         }, 403);
       }
 
@@ -80,7 +80,7 @@ export class UserController extends BaseController {
 
       if (!user) {
         return this.sendError(reply, {
-          error: 'User not found',
+          error: 'Usuário não encontrado',
           code: 'USER_NOT_FOUND',
           details: { id: request.user.userId }
         }, 404);
@@ -99,7 +99,7 @@ export class UserController extends BaseController {
 
       if (!user) {
         return this.sendError(reply, {
-          error: 'User not found',
+          error: 'Usuário não encontrado',
           code: 'USER_NOT_FOUND',
           details: { id: userId }
         }, 404);
@@ -110,7 +110,7 @@ export class UserController extends BaseController {
         return this.sendError(reply, {
           error: 'Forbidden',
           code: 'FORBIDDEN',
-          details: { message: 'You can only update your own profile' }
+          details: { message: 'Você só pode atualizar seu próprio perfil' }
         }, 403);
       }
 
@@ -128,7 +128,7 @@ export class UserController extends BaseController {
 
       if (!user) {
         return this.sendError(reply, {
-          error: 'User not found',
+          error: 'Usuário não encontrado',
           code: 'USER_NOT_FOUND',
           details: { id: userId }
         }, 404);
@@ -139,12 +139,12 @@ export class UserController extends BaseController {
         return this.sendError(reply, {
           error: 'Forbidden',
           code: 'FORBIDDEN',
-          details: { message: 'You can only delete your own profile' }
+          details: { message: 'Você só pode deletar seu próprio perfil' }
         }, 403);
       }
 
       await this.userService.delete(userId);
-      return this.sendSuccess(reply, { message: 'User deleted successfully' });
+      return this.sendSuccess(reply, { message: 'Usuário deletado com sucesso' });
     } catch (error) {
       return this.sendError(reply, this.handleError(error));
     }

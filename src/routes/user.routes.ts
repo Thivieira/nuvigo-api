@@ -2,22 +2,23 @@ import { FastifyInstance } from 'fastify';
 import { UserController } from '@/controllers/user.controller';
 import { UserService } from '@/services/user.service';
 import { authenticate } from '@/middleware/auth.middleware';
+import { isAdmin } from '@/middleware/role.middleware';
 
 const userService = new UserService();
 const userController = new UserController(userService);
 
 export default async function userRoutes(fastify: FastifyInstance) {
-  // Register routes that require authentication
+  // Registrar rotas que requerem autenticação
   fastify.register(async (authenticatedInstance) => {
-    // Apply authentication middleware to all routes in this group
+    // Aplicar middleware de autenticação em todas as rotas deste grupo
     authenticatedInstance.addHook('preHandler', authenticate);
 
-    // List all users (admin only)
+    // Listar todos os usuários (apenas administradores)
     authenticatedInstance.route({
       method: 'GET',
       url: '/',
       schema: {
-        description: 'Get all users (admin only)',
+        description: 'Obter todos os usuários (apenas administradores)',
         tags: ['user'],
         response: {
           200: {
@@ -52,15 +53,16 @@ export default async function userRoutes(fastify: FastifyInstance) {
           }
         }
       },
+      preHandler: isAdmin,
       handler: userController.findAll.bind(userController),
     });
 
-    // Get current user profile
+    // Obter perfil do usuário atual
     authenticatedInstance.route({
       method: 'GET',
       url: '/me',
       schema: {
-        description: 'Get current user profile',
+        description: 'Obter perfil do usuário atual',
         tags: ['user'],
         response: {
           200: {
@@ -95,12 +97,12 @@ export default async function userRoutes(fastify: FastifyInstance) {
       handler: userController.getCurrentUser.bind(userController),
     });
 
-    // Get user by ID (admin only)
+    // Obter usuário por ID (apenas administradores)
     authenticatedInstance.route({
       method: 'GET',
       url: '/:id',
       schema: {
-        description: 'Get user by ID (admin only)',
+        description: 'Obter usuário por ID (apenas administradores)',
         tags: ['user'],
         params: {
           type: 'object',
@@ -146,15 +148,16 @@ export default async function userRoutes(fastify: FastifyInstance) {
           }
         }
       },
+      preHandler: isAdmin,
       handler: userController.findById.bind(userController),
     });
 
-    // Update user (admin or own profile)
+    // Atualizar usuário (administrador ou próprio perfil)
     authenticatedInstance.route({
       method: 'PUT',
       url: '/:id?',
       schema: {
-        description: 'Update user by ID (admin or own profile). If no ID is provided, updates the current user profile.',
+        description: 'Atualizar usuário por ID (administrador ou próprio perfil). Se nenhum ID for fornecido, atualiza o perfil do usuário atual.',
         tags: ['user'],
         params: {
           type: 'object',
@@ -209,15 +212,21 @@ export default async function userRoutes(fastify: FastifyInstance) {
           }
         }
       },
+      preHandler: async (request, reply) => {
+        const userId = request.params.id;
+        if (userId && userId !== request.user.id) {
+          await isAdmin(request, reply);
+        }
+      },
       handler: userController.update.bind(userController),
     });
 
-    // Delete user (admin or own profile)
+    // Deletar usuário (administrador ou próprio perfil)
     authenticatedInstance.route({
       method: 'DELETE',
       url: '/:id?',
       schema: {
-        description: 'Delete user by ID (admin or own profile). If no ID is provided, deletes the current user profile.',
+        description: 'Deletar usuário por ID (administrador ou próprio perfil). Se nenhum ID for fornecido, deleta o perfil do usuário atual.',
         tags: ['user'],
         params: {
           type: 'object',
@@ -253,16 +262,22 @@ export default async function userRoutes(fastify: FastifyInstance) {
           }
         }
       },
+      preHandler: async (request, reply) => {
+        const userId = request.params.id;
+        if (userId && userId !== request.user.id) {
+          await isAdmin(request, reply);
+        }
+      },
       handler: userController.delete.bind(userController),
     });
   });
 
-  // Public routes (no authentication required)
+  // Rotas públicas (não requerem autenticação)
   fastify.route({
     method: 'POST',
     url: '/',
     schema: {
-      description: 'Create a new user',
+      description: 'Criar um novo usuário',
       tags: ['user'],
       body: {
         type: 'object',
