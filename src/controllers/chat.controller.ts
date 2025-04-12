@@ -4,7 +4,7 @@ import { WeatherService } from '@/services/weather.service';
 import { ChatCreate, ChatUpdate } from '@/types/chat';
 import { getWeatherDescription } from '@/utils/weather.utils';
 import { analyzeLocation } from '@/utils/location.utils';
-import { JWTPayload } from '@/types/auth';
+import { JWTPayload, AuthenticatedRequest } from '@/types/auth';
 import { WeatherResponse } from '@/types/weather';
 
 interface RequestWithUser extends FastifyRequest {
@@ -140,7 +140,29 @@ export class ChatController {
 
   async getSession(request: FastifyRequest<{ Params: { sessionId: string } }>, reply: FastifyReply) {
     try {
+      // Since this route is protected by the authenticate middleware,
+      // we can safely use non-null assertion for the user property
+      const user = request.user!;
+
       const session = await this.chatService.getSessionById(request.params.sessionId);
+
+      if (!session) {
+        return reply.code(404).send({
+          error: 'Session not found',
+          code: 'SESSION_NOT_FOUND',
+          details: { message: 'The requested chat session does not exist' }
+        });
+      }
+
+      // Check if user is admin or owner of the session
+      if (user.role !== 'ADMIN' && user.userId !== session.userId) {
+        return reply.code(403).send({
+          error: 'Forbidden',
+          code: 'FORBIDDEN',
+          details: { message: 'You do not have permission to access this chat session' }
+        });
+      }
+
       return reply.send(session);
     } catch (error) {
       return reply.code(500).send({ error: 'Failed to get session' });
