@@ -3,12 +3,15 @@ import { ChatController } from '@/controllers/chat.controller';
 import { ChatService } from '@/services/chat.service';
 import { WeatherService } from '@/services/weather.service';
 import { authenticate } from '@/middleware/auth.middleware';
-import { PrismaClient } from '@prisma/client';
+import { ChatSessionService } from '@/services/chat-session.service';
+import { ChatSessionController } from '@/controllers/chat-session.controller';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
 const chatService = new ChatService(prisma);
 const weatherService = new WeatherService();
-const chatController = new ChatController(chatService, weatherService);
+const chatSessionService = new ChatSessionService(prisma);
+const chatController = new ChatController(chatService, chatSessionService, weatherService);
+const chatSessionController = new ChatSessionController(chatSessionService);
 
 const UserBaseSchema = {
   type: 'object',
@@ -18,7 +21,6 @@ const UserBaseSchema = {
     name: { type: 'string', nullable: true },
   }
 };
-
 
 export default async function chatSessionRoutes(fastify: FastifyInstance) {
   fastify.register(async (sessionInstance) => {
@@ -87,7 +89,7 @@ export default async function chatSessionRoutes(fastify: FastifyInstance) {
           }
         }
       },
-      handler: chatController.getSessions.bind(chatController),
+      handler: chatSessionController.getSessions.bind(chatSessionController),
     });
 
     sessionInstance.route({
@@ -165,7 +167,7 @@ export default async function chatSessionRoutes(fastify: FastifyInstance) {
           }
         }
       },
-      handler: chatController.getSession.bind(chatController),
+      handler: chatSessionController.getSession.bind(chatSessionController),
     });
 
     sessionInstance.route({
@@ -210,7 +212,7 @@ export default async function chatSessionRoutes(fastify: FastifyInstance) {
           }
         }
       },
-      handler: chatController.deleteChat.bind(chatController),
+      handler: chatSessionController.deleteSession.bind(chatSessionController),
     });
 
     sessionInstance.route({

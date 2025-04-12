@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
+import bcrypt from 'bcrypt';
+import { prisma } from '../../src/lib/prisma';
 
 async function main() {
   // Check if admin user already exists

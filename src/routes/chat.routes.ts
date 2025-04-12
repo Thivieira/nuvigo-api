@@ -1,15 +1,15 @@
 import { FastifyInstance } from 'fastify';
 import { ChatController } from '@/controllers/chat.controller';
 import { ChatService } from '@/services/chat.service';
+import { ChatSessionService } from '@/services/chat-session.service';
 import { WeatherService } from '@/services/weather.service';
 import { authenticate } from '@/middleware/auth.middleware';
 import { prisma } from '@/lib/prisma';
 
-
 const chatService = new ChatService(prisma);
+const chatSessionService = new ChatSessionService(prisma);
 const weatherService = new WeatherService();
-const chatController = new ChatController(chatService, weatherService);
-
+const chatController = new ChatController(chatService, chatSessionService, weatherService);
 
 export default async function chatRoutes(fastify: FastifyInstance) {
   fastify.register(async (chatInstance) => {
@@ -19,7 +19,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       method: 'POST',
       url: '/',
       schema: {
-        description: 'Create a new chat message and get weather response if applicable',
+        description: 'Create a new chat message',
         tags: ['chat-message'],
         security: [{ bearerAuth: [] }],
         body: {
@@ -38,100 +38,36 @@ export default async function chatRoutes(fastify: FastifyInstance) {
           }
         },
         response: {
-          201: {
+          200: {
             type: 'object',
+            required: ['id', 'chatSessionId', 'message', 'role', 'turn', 'createdAt', 'updatedAt'],
             properties: {
-              userMessage: {
+              id: { type: 'string', format: 'uuid' },
+              userId: { type: 'string', format: 'uuid', nullable: true },
+              chatSessionId: { type: 'string', format: 'uuid' },
+              message: { type: 'string' },
+              role: { type: 'string', enum: ['user', 'assistant'] },
+              turn: { type: 'number' },
+              metadata: {
                 type: 'object',
-                required: ['id', 'chatSessionId', 'message', 'role', 'turn', 'createdAt', 'updatedAt'],
-                properties: {
-                  id: { type: 'string', format: 'uuid' },
-                  userId: { type: 'string', format: 'uuid', nullable: true },
-                  chatSessionId: { type: 'string', format: 'uuid' },
-                  message: { type: 'string' },
-                  role: { type: 'string', enum: ['user', 'assistant'] },
-                  turn: { type: 'number' },
-                  metadata: {
-                    type: 'object',
-                    additionalProperties: true,
-                    nullable: true
-                  },
-                  createdAt: { type: 'string', format: 'date-time' },
-                  updatedAt: { type: 'string', format: 'date-time' }
-                }
+                additionalProperties: true,
+                nullable: true
               },
-              assistantMessage: {
+              createdAt: { type: 'string', format: 'date-time' },
+              updatedAt: { type: 'string', format: 'date-time' },
+              chatSession: {
                 type: 'object',
-                required: ['id', 'chatSessionId', 'message', 'role', 'turn', 'createdAt', 'updatedAt'],
                 properties: {
                   id: { type: 'string', format: 'uuid' },
-                  userId: { type: 'string', format: 'uuid', nullable: true },
-                  chatSessionId: { type: 'string', format: 'uuid' },
-                  message: { type: 'string' },
-                  role: { type: 'string', enum: ['user', 'assistant'] },
-                  turn: { type: 'number' },
-                  metadata: {
+                  userId: { type: 'string', format: 'uuid' },
+                  title: { type: 'string', nullable: true },
+                  user: {
                     type: 'object',
                     properties: {
-                      weather: {
-                        type: 'object',
-                        properties: {
-                          location: {
-                            type: 'object',
-                            properties: {
-                              name: { type: 'string' },
-                              country: { type: 'string' },
-                              lat: { type: 'number' },
-                              lon: { type: 'number' }
-                            }
-                          },
-                          current: {
-                            type: 'object',
-                            properties: {
-                              temp: { type: 'number' },
-                              feels_like: { type: 'number' },
-                              humidity: { type: 'number' },
-                              wind_speed: { type: 'number' },
-                              description: { type: 'string' },
-                              icon: { type: 'string' }
-                            }
-                          },
-                          forecast: {
-                            type: 'object',
-                            properties: {
-                              high: { type: 'number' },
-                              low: { type: 'number' },
-                              precipitation_chance: { type: 'number' }
-                            }
-                          }
-                        }
-                      },
-                      source: { type: 'string' }
+                      id: { type: 'string', format: 'uuid' },
+                      email: { type: 'string', format: 'email' },
+                      name: { type: 'string', nullable: true }
                     }
-                  },
-                  createdAt: { type: 'string', format: 'date-time' },
-                  updatedAt: { type: 'string', format: 'date-time' }
-                }
-              },
-              chatHistory: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  required: ['id', 'chatSessionId', 'message', 'role', 'turn', 'createdAt', 'updatedAt'],
-                  properties: {
-                    id: { type: 'string', format: 'uuid' },
-                    userId: { type: 'string', format: 'uuid', nullable: true },
-                    chatSessionId: { type: 'string', format: 'uuid' },
-                    message: { type: 'string' },
-                    role: { type: 'string', enum: ['user', 'assistant'] },
-                    turn: { type: 'number' },
-                    metadata: {
-                      type: 'object',
-                      additionalProperties: true,
-                      nullable: true
-                    },
-                    createdAt: { type: 'string', format: 'date-time' },
-                    updatedAt: { type: 'string', format: 'date-time' }
                   }
                 }
               }
@@ -153,6 +89,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
               details: { type: 'object' }
             }
           },
+          403: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
           500: {
             type: 'object',
             properties: {
@@ -164,69 +108,6 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         }
       },
       handler: chatController.createChat.bind(chatController)
-    });
-
-    chatInstance.route({
-      method: 'GET',
-      url: '/:id',
-      schema: {
-        description: 'Get a specific chat message by ID',
-        tags: ['chat-message'],
-        security: [{ bearerAuth: [] }],
-        params: {
-          type: 'object',
-          required: ['id'],
-          properties: {
-            id: { type: 'string', format: 'uuid' }
-          }
-        },
-        response: {
-          200: {
-            type: 'object',
-            required: ['id', 'chatSessionId', 'message', 'role', 'turn', 'createdAt', 'updatedAt'],
-            properties: {
-              id: { type: 'string', format: 'uuid' },
-              userId: { type: 'string', format: 'uuid', nullable: true },
-              chatSessionId: { type: 'string', format: 'uuid' },
-              message: { type: 'string' },
-              role: { type: 'string', enum: ['user', 'assistant'] },
-              turn: { type: 'number' },
-              metadata: {
-                type: 'object',
-                additionalProperties: true,
-                nullable: true
-              },
-              createdAt: { type: 'string', format: 'date-time' },
-              updatedAt: { type: 'string', format: 'date-time' }
-            }
-          },
-          401: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-              code: { type: 'string' },
-              details: { type: 'object' }
-            }
-          },
-          404: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-              code: { type: 'string' },
-              details: { type: 'object' }
-            }
-          },
-          500: {
-            type: 'object',
-            properties: {
-              error: { type: 'string' },
-              code: { type: 'string' },
-              details: { type: 'object' }
-            }
-          }
-        }
-      },
-      handler: chatController.getChat.bind(chatController)
     });
 
     chatInstance.route({
@@ -273,10 +154,42 @@ export default async function chatRoutes(fastify: FastifyInstance) {
                 nullable: true
               },
               createdAt: { type: 'string', format: 'date-time' },
-              updatedAt: { type: 'string', format: 'date-time' }
+              updatedAt: { type: 'string', format: 'date-time' },
+              chatSession: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                  userId: { type: 'string', format: 'uuid' },
+                  title: { type: 'string', nullable: true },
+                  user: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      email: { type: 'string', format: 'email' },
+                      name: { type: 'string', nullable: true }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          400: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
             }
           },
           401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          403: {
             type: 'object',
             properties: {
               error: { type: 'string' },
@@ -309,7 +222,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       method: 'DELETE',
       url: '/:id',
       schema: {
-        description: 'Delete a specific chat message',
+        description: 'Delete a chat message',
         tags: ['chat-message'],
         security: [{ bearerAuth: [] }],
         params: {
@@ -322,6 +235,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
         response: {
           204: { type: 'null' },
           401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          403: {
             type: 'object',
             properties: {
               error: { type: 'string' },
@@ -350,6 +271,86 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       handler: chatController.deleteChat.bind(chatController)
     });
 
-
+    chatInstance.route({
+      method: 'GET',
+      url: '/session/:sessionId',
+      schema: {
+        description: 'Get all chat messages for a specific session',
+        tags: ['chat-message'],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['sessionId'],
+          properties: {
+            sessionId: { type: 'string', format: 'uuid' }
+          }
+        },
+        response: {
+          200: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['id', 'chatSessionId', 'message', 'role', 'turn', 'createdAt', 'updatedAt'],
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                userId: { type: 'string', format: 'uuid', nullable: true },
+                chatSessionId: { type: 'string', format: 'uuid' },
+                message: { type: 'string' },
+                role: { type: 'string', enum: ['user', 'assistant'] },
+                turn: { type: 'number' },
+                metadata: {
+                  type: 'object',
+                  additionalProperties: true,
+                  nullable: true
+                },
+                createdAt: { type: 'string', format: 'date-time' },
+                updatedAt: { type: 'string', format: 'date-time' },
+                User: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    email: { type: 'string', format: 'email' },
+                    name: { type: 'string', nullable: true }
+                  }
+                }
+              }
+            }
+          },
+          401: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          403: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          404: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          },
+          500: {
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              code: { type: 'string' },
+              details: { type: 'object' }
+            }
+          }
+        }
+      },
+      handler: chatController.getChatsBySession.bind(chatController)
+    });
   });
 } 
