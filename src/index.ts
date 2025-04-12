@@ -5,6 +5,7 @@ import chatRoutes from './routes/chat.routes';
 import authRoutes from './routes/auth.routes';
 import { locationRoutes } from './routes/location.routes';
 import registerPlugins from './plugins';
+import chatSessionRoutes from './routes/chat-session.routes';
 
 const app = Fastify({
   logger: {
@@ -32,6 +33,7 @@ app.get('/health', (req, res) => {
 app.register(authRoutes, { prefix: '/auth' });
 app.register(userRoutes, { prefix: '/user' });
 app.register(chatRoutes, { prefix: '/chat' });
+app.register(chatSessionRoutes, { prefix: '/session' });
 app.register(weatherRoutes, { prefix: '/weather' });
 app.register(locationRoutes, { prefix: '/location' });
 

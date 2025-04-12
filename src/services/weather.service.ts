@@ -116,7 +116,6 @@ export class WeatherService {
 
   constructor() {
     this.apiKey = env.TOMORROW_API_KEY;
-    console.log('WeatherService initialized with rate limits:', this.rateLimits);
   }
 
   private async retryWithBackoff<T>(

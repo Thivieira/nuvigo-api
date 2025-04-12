@@ -2,11 +2,8 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { WeatherService } from '@/services/weather.service';
 import { ChatService } from '@/services/chat.service';
 import { BaseController } from './base.controller';
-import { JWTPayload } from '@/types/auth';
 import { WeatherQuery, TimelineRequest } from '@/types/weather';
 import { ChatCreate } from '@/types/chat';
-import { getWeatherDescription } from '@/utils/weather.utils';
-import { AIService } from '@/services/ai.service';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { generateChatTitle } from '@/utils/ai.utils';
 
@@ -14,7 +11,6 @@ export class WeatherController extends BaseController {
   constructor(
     private readonly weatherService: WeatherService,
     private readonly chatService: ChatService,
-    private readonly aiService: AIService
   ) {
     super();
   }
@@ -39,7 +35,7 @@ export class WeatherController extends BaseController {
     reply: FastifyReply
   ) {
     try {
-      const { location, query, language = 'en' } = request.query;
+      const { location, query } = request.query;
 
       // Extract userId from JWT payload
       const userId = request.user?.userId;

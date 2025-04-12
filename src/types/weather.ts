@@ -98,7 +98,6 @@ export const TimelineRequestSchema = z.object({
 
 export const WeatherQuerySchema = z.object({
   location: z.string().min(3), // it will come like this: "-22.9255, -43.1784" or "belo horizonte"
-  language: z.string().default('en'),
   query: z.string().min(3),
 }).describe('Query parameters for weather endpoint');
 
