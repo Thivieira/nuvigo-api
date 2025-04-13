@@ -5,45 +5,48 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
 # Install dependencies based on the preferred package manager
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+COPY package.json package-lock.json* ./
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Rebuild the source code only when needed
-FROM base AS builder
+FROM deps AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN corepack enable && corepack prepare pnpm@latest --activate && \
-    pnpm prisma generate && \
-    pnpm build
+# Create directory structure for Prisma generated files
+RUN mkdir -p app/generated/prisma/client
 
-# Production image, copy all the files and run next
+# Generate Prisma client and types
+RUN npm run prisma:generate
+
+# Build the application
+RUN npm run build
+
+# Production image, copy all the files and run
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production \
+    PORT=3333 \
+    HOSTNAME=0.0.0.0
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Create a non-root user and set up permissions
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 appuser && \
+    chown -R appuser:nodejs /app
 
-# Install pnpm in the runner stage
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Copy application files with proper ownership
+COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
+COPY --from=builder --chown=appuser:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=appuser:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=appuser:nodejs /app/app/generated ./app/generated
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/prisma ./prisma
+USER appuser
 
 EXPOSE 3333
-
-ENV PORT 3333
-ENV HOSTNAME "0.0.0.0"
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3333/health || exit 1

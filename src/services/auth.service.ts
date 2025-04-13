@@ -1,9 +1,9 @@
 import bcrypt from 'bcrypt';
 import { RegisterDto, LoginDto, AuthResponse } from '@/types/auth';
-import { Prisma } from '@prisma/client';
 import { FastifyInstance } from 'fastify';
 import { TokenService } from './token.service';
 import { prisma } from '@/lib/prisma';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 export class AuthService {
   constructor(private fastify: FastifyInstance) { }
@@ -47,7 +47,7 @@ export class AuthService {
       const accessToken = TokenService.generateAccessToken({
         userId: user.id,
         email: user.email,
-        role: 'USER',
+        role: user.role,
       });
       const refreshToken = await TokenService.createRefreshToken(user.id);
 
@@ -60,7 +60,7 @@ export class AuthService {
         user,
       };
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new Error('Email already registered');
         }

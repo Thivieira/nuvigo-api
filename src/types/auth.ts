@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/generated/client';
 import { FastifyRequest, RouteGenericInterface } from 'fastify';
 
 export interface JWTPayload {

@@ -1,4 +1,3 @@
-
 import { CreateUserDto, UpdateUserDto, UserWithoutPassword } from '@/types/user';
 import bcrypt from 'bcrypt';
 import { prisma } from '@/lib/prisma';
@@ -12,16 +11,14 @@ export class UserService {
         ...data,
         password: hashedPassword,
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-        role: true,
-      },
+      include: {
+        chats: true,
+        ChatSession: true,
+        PasswordResetToken: true,
+        refreshTokens: true,
+        VerificationToken: true,
+        locations: true
+      }
     });
 
     return user;
@@ -29,32 +26,28 @@ export class UserService {
 
   async findAll(): Promise<UserWithoutPassword[]> {
     return prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-        role: true,
-      },
+      include: {
+        chats: true,
+        ChatSession: true,
+        PasswordResetToken: true,
+        refreshTokens: true,
+        VerificationToken: true,
+        locations: true
+      }
     });
   }
 
   async findById(id: string): Promise<UserWithoutPassword | null> {
     return prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-        role: true,
-      },
+      include: {
+        chats: true,
+        ChatSession: true,
+        PasswordResetToken: true,
+        refreshTokens: true,
+        VerificationToken: true,
+        locations: true
+      }
     });
   }
 
@@ -66,16 +59,14 @@ export class UserService {
     return prisma.user.update({
       where: { id },
       data,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-        role: true,
-      },
+      include: {
+        chats: true,
+        ChatSession: true,
+        PasswordResetToken: true,
+        refreshTokens: true,
+        VerificationToken: true,
+        locations: true
+      }
     });
   }
 

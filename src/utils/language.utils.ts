@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { Chat, ChatSession } from '@prisma/client';
+import { Chat, ChatSession } from '@prisma/generated/client';
 import { createOpenAIResponse } from './openAI.utils';
 import { ChatService } from '@/services/chat.service';
 import { OpenAI } from 'openai';

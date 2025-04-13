@@ -1,9 +1,9 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { UserService } from '@/services/user.service';
 import { CreateUserDto, UpdateUserDto } from '@/types/user';
-import { Prisma } from '@prisma/client';
 import { BaseController } from './base.controller';
 import { JWTPayload } from '@/types/auth';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 export class UserController extends BaseController {
   constructor(private readonly userService: UserService) {
@@ -15,7 +15,7 @@ export class UserController extends BaseController {
       const user = await this.userService.create(request.body);
       return this.sendSuccess(reply, user, 201);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           return this.sendError(reply, {
             error: 'Email já existe',

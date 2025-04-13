@@ -10,15 +10,22 @@
     "paths": {
       "@/*": [
         "src/*"
+      ],
+      "@prisma/generated/client": [
+        "prisma/app/generated/prisma/client"
       ]
     },
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": [
+      "node"
+    ]
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "prisma/**/*"
   ],
   "ts-node": {
     "esm": false

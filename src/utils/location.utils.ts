@@ -1,4 +1,4 @@
-import { Location } from '@prisma/client';
+import { Location as PrismaLocation } from '@prisma/generated/client';
 import { LocationService } from '@/services/location.service';
 import axios from 'axios';
 
@@ -123,4 +123,43 @@ export async function validateLocation(location: string): Promise<boolean> {
     console.error('Error validating location:', error);
     return false;
   }
+}
+
+export async function findMatchingLocation(
+  extractedLocation: string,
+  userLocations: PrismaLocation[]
+): Promise<{ location: string; isNew: boolean }> {
+  const matchingLocation = userLocations.find(
+    (loc) => loc.name.toLowerCase() === extractedLocation.toLowerCase()
+  );
+
+  if (matchingLocation) {
+    return {
+      location: matchingLocation.name,
+      isNew: false,
+    };
+  }
+
+  return {
+    location: extractedLocation,
+    isNew: true,
+  };
+}
+
+export async function getActiveLocation(
+  userLocations: PrismaLocation[]
+): Promise<{ location: string; isNew: boolean }> {
+  const activeLocation = userLocations.find((loc) => loc.isActive);
+
+  if (activeLocation) {
+    return {
+      location: activeLocation.name,
+      isNew: false,
+    };
+  }
+
+  return {
+    location: '',
+    isNew: true,
+  };
 } 

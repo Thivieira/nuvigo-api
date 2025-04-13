@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { UserBaseSchema } from './user';
-import { Chat as PrismaChat, ChatSession as PrismaChatSession } from '@prisma/client';
+import { Chat as PrismaChat, ChatSession as PrismaChatSession } from '@prisma/generated/client';
 
 export const ChatBaseSchema = z.object({
   id: z.string().uuid(),

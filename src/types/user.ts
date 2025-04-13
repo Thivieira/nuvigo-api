@@ -1,4 +1,4 @@
-import { User as PrismaUser, UserRole } from '@prisma/client';
+import { User as PrismaUser, UserRole } from '@prisma/generated/client';
 import { z } from 'zod';
 
 export interface CreateUserDto {

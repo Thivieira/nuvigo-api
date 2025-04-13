@@ -38,3 +38,6 @@ lerna-debug.log*
 !.env.example
 
 dist/
+
+# prisma
+prisma/app/

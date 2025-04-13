@@ -1,16 +1,30 @@
-import { Location } from '@prisma/client';
+import { Prisma, Location as PrismaLocation } from '@prisma/generated/client';
 import { HTTPException } from '../exceptions';
 import { prisma } from '@/lib/prisma';
 
 export class LocationService {
-  static async getUserLocations(userId: string): Promise<Location[]> {
+  static async getUserLocations(userId: string): Promise<PrismaLocation[]> {
     return prisma.location.findMany({
       where: { userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            phone: true,
+            emailVerified: true,
+            createdAt: true,
+            updatedAt: true,
+            role: true
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  static async addLocation(userId: string, name: string): Promise<Location> {
+  static async addLocation(userId: string, name: string): Promise<PrismaLocation> {
     // Check if location already exists for user
     const existingLocation = await prisma.location.findFirst({
       where: { userId, name },
@@ -34,10 +48,24 @@ export class LocationService {
         userId,
         isActive,
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            phone: true,
+            emailVerified: true,
+            createdAt: true,
+            updatedAt: true,
+            role: true
+          }
+        }
+      }
     });
   }
 
-  static async setActiveLocation(userId: string, locationId: string): Promise<Location> {
+  static async setActiveLocation(userId: string, locationId: string): Promise<PrismaLocation> {
     // Verify location exists and belongs to user
     const location = await prisma.location.findFirst({
       where: { id: locationId, userId },
@@ -49,16 +77,30 @@ export class LocationService {
 
     // Start a transaction to update all locations
     return prisma.$transaction(async (tx) => {
-      // Set all locations to inactive
+      // First, set all locations to inactive
       await tx.location.updateMany({
         where: { userId },
         data: { isActive: false },
       });
 
-      // Set the specified location to active
+      // Then, set the specified location to active
       return tx.location.update({
         where: { id: locationId },
         data: { isActive: true },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              phone: true,
+              emailVerified: true,
+              createdAt: true,
+              updatedAt: true,
+              role: true
+            }
+          }
+        }
       });
     });
   }
@@ -73,13 +115,13 @@ export class LocationService {
       throw new HTTPException(400, { message: 'Cannot delete the last location' });
     }
 
-    const locationToDelete = userLocations.find(loc => loc.id === locationId);
+    const locationToDelete = userLocations.find((loc) => loc.id === locationId);
     if (!locationToDelete) {
       throw new HTTPException(404, { message: 'Location not found' });
     }
 
     // Start a transaction to handle the deletion and potential active location update
-    return prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // Delete the location
       await tx.location.delete({
         where: { id: locationId },
@@ -87,7 +129,7 @@ export class LocationService {
 
       // If the deleted location was active, set another location as active
       if (locationToDelete.isActive) {
-        const newActiveLocation = userLocations.find(loc => loc.id !== locationId);
+        const newActiveLocation = userLocations.find((loc) => loc.id !== locationId);
         if (newActiveLocation) {
           await tx.location.update({
             where: { id: newActiveLocation.id },

@@ -1,11 +1,11 @@
 import { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
 import { verifyToken } from '@/utils/jwt.utils';
-import { JWTPayload } from '@/types/auth';
+import { JWTPayload, AuthenticatedRequest } from '@/types/auth';
 import { prisma } from '@/lib/prisma';
 
 declare module 'fastify' {
   interface FastifyRequest {
-    user: JWTPayload;
+    user: JWTPayload | null;
   }
 }
 
@@ -56,6 +56,6 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
 };
 
 export const registerAuthMiddleware = (fastify: FastifyInstance) => {
-  fastify.decorateRequest('user', undefined);
+  fastify.decorateRequest('user', null);
   fastify.addHook('onRequest', authenticate);
 }; 
