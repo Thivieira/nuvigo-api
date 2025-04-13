@@ -45,7 +45,7 @@ export interface WeatherAnalysis {
 interface LocationAnalysis {
   location: string;
   confidence: number;
-  source: 'context' | 'saved' | 'default';
+  source: 'context' | 'saved' | 'default' | 'history';
 }
 
 async function buildMessagesWithHistory(
@@ -226,11 +226,36 @@ export async function analyzeDateWithHistory(query: string, history: Chat[]): Pr
 export async function analyzeLocation(
   text: string,
   userId: string,
-  defaultLocation: string = 'São Paulo'
+  chatHistory?: Chat[]
 ): Promise<LocationAnalysis> {
   try {
     // 1. Try to extract location from the text
     const extractedLocation = await extractLocationFromText(text);
+
+    // 2. Check chat history for location context
+    if (chatHistory && chatHistory.length > 0) {
+      const lastLocationMention = await findLastLocationMention(chatHistory);
+      if (lastLocationMention) {
+        console.log('Found location in chat history:', lastLocationMention);
+        // If the current query is about correcting or changing location, use the new location
+        if (isLocationCorrectionQuery(text)) {
+          if (extractedLocation) {
+            return {
+              location: extractedLocation,
+              confidence: 0.9,
+              source: 'context'
+            };
+          }
+        } else {
+          // Otherwise, use the last mentioned location
+          return {
+            location: lastLocationMention,
+            confidence: 0.8,
+            source: 'history'
+          };
+        }
+      }
+    }
 
     if (extractedLocation) {
       // Validate if the extracted location exists in user's saved locations
@@ -255,7 +280,7 @@ export async function analyzeLocation(
       };
     }
 
-    // 2. Try to get user's active location
+    // 3. Try to get user's active location
     const userLocations = await LocationService.getUserLocations(userId);
     const activeLocation = userLocations.find(loc => loc.isActive);
 
@@ -267,20 +292,54 @@ export async function analyzeLocation(
       };
     }
 
-    // 3. Fall back to default location
-    return {
-      location: defaultLocation,
-      confidence: 0.5,
-      source: 'default'
-    };
+    // 4. If no location could be found, throw an error
+    throw new Error('LOCATION_REQUIRED');
   } catch (error) {
+    if (error instanceof Error && error.message === 'LOCATION_REQUIRED') {
+      throw error; // Re-throw the location required error
+    }
     console.error('Error analyzing location:', error);
-    return {
-      location: defaultLocation,
-      confidence: 0.3,
-      source: 'default'
-    };
+    throw new Error('LOCATION_REQUIRED');
   }
+}
+
+async function findLastLocationMention(history: Chat[]): Promise<string | null> {
+  try {
+    // Reverse the history to check from most recent to oldest
+    for (let i = history.length - 1; i >= 0; i--) {
+      const chat = history[i];
+      const location = await extractLocationFromText(chat.message);
+      if (location) {
+        return location;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error finding last location mention:', error);
+    return null;
+  }
+}
+
+function isLocationCorrectionQuery(text: string): boolean {
+  const correctionKeywords = [
+    'corrigir',
+    'correction',
+    'change',
+    'mudar',
+    'alterar',
+    'actually',
+    'na verdade',
+    'correction',
+    'correção',
+    'wrong',
+    'errado',
+    'incorrect',
+    'incorreto'
+  ];
+
+  return correctionKeywords.some(keyword =>
+    text.toLowerCase().includes(keyword.toLowerCase())
+  );
 }
 
 /**

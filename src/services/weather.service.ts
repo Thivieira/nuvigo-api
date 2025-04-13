@@ -2,11 +2,13 @@ import dayjs from '@/lib/dayjs';
 import { analyzeWeatherData, PromptParams, analyzeDateWithHistory, analyzeLocation } from '@/utils/language.utils';
 import { getWeatherDescription, formatWeatherDataForResponse } from '@/utils/weather.utils';
 import { env } from '@/env';
-import { ChatService } from "./chat.service";
+import { ChatService } from "@/services/chat.service";
 import axios from 'axios';
 import { TimelineRequest } from '@/types/weather';
-
-
+import { Chat } from '@prisma/generated/client';
+import { createOpenAIResponse } from '@/utils/openAI.utils';
+import { ChatCreate } from '@/types/chat';
+import { OpenAI } from 'openai';
 
 interface WeatherResponse {
   location: string;
@@ -92,9 +94,10 @@ function formatLocationParam(location: string | { type?: 'Point'; coordinates?: 
 
 // Define a type for the combined response
 interface FlexibleWeatherResult {
-  weatherData: WeatherResponse;
+  weatherData: WeatherResponse | null;
   sessionId: string;
   naturalResponse: string;
+  requiresLocation?: boolean;
 }
 
 export class WeatherService {
@@ -298,6 +301,7 @@ export class WeatherService {
       // Check cache first
       const cachedData = this.getFromCache(location);
       if (cachedData) {
+        console.log('Using cached weather data for:', location);
         return cachedData;
       }
 
@@ -305,13 +309,19 @@ export class WeatherService {
         ? `location=${encodeURIComponent(location)}`
         : `location=${location.lat},${location.lon}`;
 
-      console.log('Fetching weather data for:', locationParam);
+      console.log('Making realtime API request to Tomorrow.io with params:', {
+        location: locationParam,
+        endpoint: `${this.baseUrl}/realtime`,
+        units: 'metric'
+      });
 
       // Get realtime weather data with retry logic
       const response = await this.retryWithBackoff(async () => {
-        const result = await axios.get(
-          `${this.baseUrl}/realtime?${locationParam}&apikey=${this.apiKey}&units=metric`
-        );
+        const url = `${this.baseUrl}/realtime?${locationParam}&apikey=${this.apiKey}&units=metric`;
+        console.log('Full realtime API URL:', url);
+
+        const result = await axios.get(url);
+        console.log('Raw realtime API response:', result.data);
 
         // Check rate limits and token usage
         this.checkRateLimits(result.headers);
@@ -321,11 +331,21 @@ export class WeatherService {
       });
 
       if (!response.data || !response.data.data) {
+        console.error('Invalid realtime API response structure:', response.data);
         throw new Error('Invalid response from weather API');
       }
 
       const data = response.data.data;
-      console.log('Received weather data:', data);
+      console.log('Processed realtime weather data:', {
+        temperature: data.values.temperature,
+        apparentTemperature: data.values.temperatureApparent,
+        humidity: data.values.humidity,
+        windSpeed: data.values.windSpeed,
+        cloudCover: data.values.cloudCover,
+        precipitationProbability: data.values.precipitationProbability,
+        weatherCode: data.values.weatherCode,
+        time: data.time
+      });
 
       // Format precipitation based on type and intensity
       let precipitation = '0%';
@@ -364,14 +384,20 @@ export class WeatherService {
       // Cache the response
       this.setCache(location, weatherResponse);
 
-      console.log('Returning weather response:', weatherResponse);
+      console.log('Final realtime weather response:', weatherResponse);
       return weatherResponse;
     } catch (error) {
-      console.error('Weather API Error:', error);
+      console.error('Realtime Weather API Error:', error);
       if (axios.isAxiosError(error)) {
         if (error.response) {
+          console.error('Realtime API Error Response:', {
+            status: error.response.status,
+            data: error.response.data,
+            headers: error.response.headers
+          });
           throw new Error(`Weather API error: ${error.response.status} - ${error.response.data?.message || 'Unknown error'}`);
         } else if (error.request) {
+          console.error('No response received from realtime API:', error.request);
           throw new Error('No response received from weather API');
         }
       }
@@ -473,22 +499,57 @@ export class WeatherService {
       const queryTime = dayjs();
       console.log('Query time:', queryTime.format('YYYY-MM-DD HH:mm:ss'));
 
-      // If no location is provided in the request, try to extract it from the query
-      let location: string | { type?: 'Point'; coordinates?: [number, number]; name?: string } = request.location;
-      if (!location) {
-        const locationAnalysis = await analyzeLocation(query, userId);
-        location = locationAnalysis.location;
-        console.log('Extracted location from query:', location);
-      }
-
-      const locationParam = formatLocationParam(location);
-      console.log('Location parameter:', locationParam);
-
-      // Get the chat session and history
+      // Get the chat session and history first
       const initialSession = await chatService.findOrCreateActiveSession(userId);
       const initialSessionId = initialSession.id;
       const sessionData = await chatService.findSessionById(initialSessionId);
       const history = sessionData?.chats ?? [];
+
+      // If no location is provided in the request, try to extract it from the query with history context
+      let location: string | { type?: 'Point'; coordinates?: [number, number]; name?: string } = request.location;
+      if (!location) {
+        try {
+          const locationAnalysis = await analyzeLocation(query, userId, history);
+          location = locationAnalysis.location;
+          console.log('Extracted location from query with history context:', location);
+        } catch (error) {
+          if (error instanceof Error && error.message === 'LOCATION_REQUIRED') {
+            // Create a chat message asking for location
+            const prompt = `I need to know which location you're asking about. Could you please specify a city or location?`;
+            const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+              {
+                role: 'system',
+                content: 'You are a weather assistant. Ask the user to specify a location.'
+              },
+              { role: 'user', content: prompt }
+            ];
+
+            const response = await createOpenAIResponse(messages);
+            const naturalResponse = response.choices[0].message?.content || 'Could you please specify a location?';
+
+            // Save the chat message
+            const chatData: ChatCreate = {
+              chatSessionId: initialSessionId,
+              message: naturalResponse,
+              role: 'assistant',
+              turn: history.length + 1
+            };
+
+            await chatService.create(userId, chatData);
+
+            return {
+              weatherData: null,
+              sessionId: initialSessionId,
+              naturalResponse,
+              requiresLocation: true
+            };
+          }
+          throw error;
+        }
+      }
+
+      const locationParam = formatLocationParam(location);
+      console.log('Location parameter:', locationParam);
 
       // Analyze the date and time in the query using chat history
       const dateAnalysis = await analyzeDateWithHistory(query, history);
@@ -534,25 +595,25 @@ export class WeatherService {
         endTime: isFuture ? targetDayjs.add(1, 'day').format('YYYY-MM-DD') : dayjs().add(5, 'days').format('YYYY-MM-DD')
       };
 
-      console.log('Timeline request:', timelineRequest);
+      console.log('Making timelines API request to Tomorrow.io with params:', timelineRequest);
 
       const weatherUrl = `https://api.tomorrow.io/v4/timelines?apikey=${env.TOMORROW_API_KEY}`;
-      console.log('Making request to Tomorrow.io API');
+      console.log('Full timelines API URL:', weatherUrl);
 
       let weatherResponse;
       try {
-        console.log('Starting Tomorrow.io API call');
+        console.log('Starting timelines API call');
         weatherResponse = await axios.post(weatherUrl, timelineRequest, {
           headers: { 'Content-Type': 'application/json' }
         });
-        console.log('Tomorrow.io API call completed with status:', weatherResponse.status);
+        console.log('Timelines API call completed with status:', weatherResponse.status);
       } catch (error: any) {
-        console.error('Error calling Tomorrow.io API:', error);
+        console.error('Error calling timelines API:', error);
         throw new Error(`Failed to fetch weather data: ${error.message}`);
       }
 
       if (weatherResponse.status !== 200) {
-        console.error('Tomorrow.io API Error:', {
+        console.error('Timelines API Error:', {
           status: weatherResponse.status,
           statusText: weatherResponse.statusText,
           error: weatherResponse.data
@@ -561,7 +622,7 @@ export class WeatherService {
       }
 
       let weatherData = weatherResponse.data;
-      console.log('Weather data received successfully');
+      console.log('Timelines weather data received successfully');
 
       if (!weatherData.data || !weatherData.data.timelines || weatherData.data.timelines.length === 0 || !weatherData.data.timelines[0].intervals || weatherData.data.timelines[0].intervals.length === 0) {
         console.error('Invalid or empty timeline data received from Tomorrow.io');
