@@ -3,7 +3,7 @@
   "scripts": {
     "dev": "NODE_NO_WARNINGS=1 tsx watch src/index.ts",
     "start": "NODE_NO_WARNINGS=1 node dist/index.js",
-    "build": "tsc && tsc-alias",
+    "build": "tsup --out-dir dist",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed/index.ts"
@@ -32,7 +32,7 @@
     "@types/node": "^22.14.1",
     "pino-pretty": "^13.0.0",
     "prisma": "^6.6.0",
-    "tsc-alias": "^1.8.15",
+    "tsup": "^8.4.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3"
   }

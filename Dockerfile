@@ -15,13 +15,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Create directory structure for Prisma generated files
-RUN mkdir -p app/generated/prisma/client
-
 # Generate Prisma client and types
-RUN npm run prisma:generate
+RUN npx prisma generate
 
-# Build the application
+# Build the application with proper TypeScript compilation
 RUN npm run build
 
 # Production image, copy all the files and run
@@ -42,7 +39,14 @@ COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
 COPY --from=builder --chown=appuser:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=appuser:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=appuser:nodejs /app/app/generated ./app/generated
+COPY .env .env
+
+# Generate Prisma client in the runner stage
+RUN npx prisma generate && \
+    # Create symlink for the generated client
+    mkdir -p node_modules/@prisma && \
+    ln -s ../../prisma/app/generated/prisma/client node_modules/@prisma/generated && \
+    chown -R appuser:nodejs node_modules/@prisma
 
 USER appuser
 
@@ -51,4 +55,4 @@ EXPOSE 3333
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3333/health || exit 1
 
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["node", "dist/index.js"]

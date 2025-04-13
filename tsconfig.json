@@ -21,11 +21,18 @@
     "forceConsistentCasingInFileNames": true,
     "types": [
       "node"
-    ]
+    ],
+    "sourceMap": true,
+    "declaration": true,
+    "removeComments": false
   },
   "include": [
     "src/**/*",
     "prisma/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
   ],
   "ts-node": {
     "esm": false
