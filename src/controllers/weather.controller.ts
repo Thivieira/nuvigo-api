@@ -16,7 +16,11 @@ export class WeatherController extends BaseController {
     super();
   }
 
-  prepareLocation(location: string): string | { type: 'Point'; coordinates: [number, number] } {
+  prepareLocation(location?: string): string | { type: 'Point'; coordinates: [number, number] } {
+    if (!location) {
+      return '';
+    }
+
     if (location.includes(',')) {
       const [lat, lon] = location.split(',').map(coord => parseFloat(coord.trim()));
       if (isNaN(lat) || isNaN(lon)) {
@@ -47,7 +51,7 @@ export class WeatherController extends BaseController {
       }
 
       const now = dayjs();
-      const preparedLocation = this.prepareLocation(location);
+      const preparedLocation = location ? this.prepareLocation(location) : undefined;
       const weatherServiceRequest: TimelineRequest = {
         location: preparedLocation,
         startTime: now.toISOString(),
@@ -127,7 +131,7 @@ export class WeatherController extends BaseController {
         naturalResponse: result.naturalResponse
       });
     } catch (error) {
-      console.log('Error in getFlexibleWeather:', error);
+      console.error('Error in getFlexibleWeather:', error);
       return this.sendError(reply, this.handleError(error));
     }
   }

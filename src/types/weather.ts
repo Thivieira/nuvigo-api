@@ -100,7 +100,7 @@ export const TimelineRequestSchema = z.object({
 }).describe('Request body for Tomorrow.io timelines API');
 
 export const WeatherQuerySchema = z.object({
-  location: z.string().min(3), // it will come like this: "-22.9255, -43.1784" or "belo horizonte"
+  location: z.string().min(3).optional(),
   query: z.string().min(3),
 }).describe('Query parameters for weather endpoint');
 
@@ -113,10 +113,15 @@ export type TimelineWeatherValues = z.infer<typeof TimelineWeatherValuesSchema>;
 export type TimelineInterval = z.infer<typeof TimelineIntervalSchema>;
 export type Timeline = z.infer<typeof TimelineSchema>;
 export type TimelineResponse = z.infer<typeof TimelineResponseSchema>;
-export type TimelineRequest = z.infer<typeof TimelineRequestSchema> & {
+export interface TimelineRequest {
+  location?: string | { type?: 'Point'; coordinates?: [number, number]; name?: string };
+  fields?: string[];
+  timesteps?: string[];
+  startTime?: string;
   units?: string;
   timezone?: string;
-};
+  endTime?: string;
+}
 export type WeatherQuery = z.infer<typeof WeatherQuerySchema>;
 
 // Route Handler Types

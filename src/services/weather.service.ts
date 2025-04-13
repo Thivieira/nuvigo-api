@@ -1,5 +1,5 @@
 import dayjs from '@/lib/dayjs';
-import { analyzeWeatherData, PromptParams, analyzeDateWithHistory } from '@/utils/language.utils';
+import { analyzeWeatherData, PromptParams, analyzeDateWithHistory, analyzeLocation } from '@/utils/language.utils';
 import { getWeatherDescription, formatWeatherDataForResponse } from '@/utils/weather.utils';
 import { env } from '@/env';
 import { ChatService } from "./chat.service";
@@ -21,6 +21,7 @@ interface WeatherResponse {
   weatherCode: number;
   naturalResponse?: string;
   currentTime?: string;
+  queryTime?: string;
 }
 
 interface Location {
@@ -352,7 +353,7 @@ export class WeatherService {
       const weatherResponse: WeatherResponse = {
         location: typeof location === 'string' ? location : `${location.lat},${location.lon}`,
         temperature: Math.round(data.values.temperature).toString(),
-        condition: this.translateCondition(data.values.weatherCode),
+        condition: this.translateCondition(data.values.weatherCode, 'day'),
         high: Math.round(data.values.temperature).toString(),
         low: Math.round(data.values.temperature).toString(),
         precipitation,
@@ -379,35 +380,88 @@ export class WeatherService {
     }
   }
 
-  private translateCondition(code: number): string {
-    // Basic translation of weather codes to Portuguese
-    const conditions: { [key: number]: string } = {
-      1000: 'Céu Limpo',
-      1100: 'Parcialmente Nublado',
-      1101: 'Parcialmente Nublado',
-      1102: 'Parcialmente Nublado',
-      1001: 'Nublado',
-      2000: 'Neblina',
-      2100: 'Neblina Leve',
-      4000: 'Chuva',
-      4001: 'Chuva',
-      4200: 'Chuva Leve',
-      4201: 'Chuva Forte',
-      5000: 'Neve',
-      5001: 'Neve',
-      5100: 'Neve Leve',
-      5101: 'Neve Forte',
-      6000: 'Chuva Congelante',
-      6001: 'Chuva Congelante',
-      6200: 'Chuva Congelante Leve',
-      6201: 'Chuva Congelante Forte',
-      7000: 'Granizo',
-      7101: 'Granizo',
-      7102: 'Granizo Pesado',
-      8000: 'Tempestade',
+  private translateCondition(code: number, timeOfDay: string = 'day', language: string = 'en'): string {
+    // Define language-specific condition translations
+    const conditions: Record<string, Record<number, string>> = {
+      en: {
+        1000: timeOfDay === 'night' ? 'Clear Sky' : 'Clear Sky',
+        1100: timeOfDay === 'night' ? 'Partly Cloudy' : 'Partly Cloudy',
+        1101: timeOfDay === 'night' ? 'Partly Cloudy' : 'Partly Cloudy',
+        1102: timeOfDay === 'night' ? 'Partly Cloudy' : 'Partly Cloudy',
+        1001: timeOfDay === 'night' ? 'Cloudy' : 'Cloudy',
+        2000: timeOfDay === 'night' ? 'Fog' : 'Fog',
+        2100: timeOfDay === 'night' ? 'Light Fog' : 'Light Fog',
+        4000: timeOfDay === 'night' ? 'Rain' : 'Rain',
+        4001: timeOfDay === 'night' ? 'Rain' : 'Rain',
+        4200: timeOfDay === 'night' ? 'Light Rain' : 'Light Rain',
+        4201: timeOfDay === 'night' ? 'Heavy Rain' : 'Heavy Rain',
+        5000: timeOfDay === 'night' ? 'Snow' : 'Snow',
+        5001: timeOfDay === 'night' ? 'Snow' : 'Snow',
+        5100: timeOfDay === 'night' ? 'Light Snow' : 'Light Snow',
+        5101: timeOfDay === 'night' ? 'Heavy Snow' : 'Heavy Snow',
+        6000: timeOfDay === 'night' ? 'Freezing Rain' : 'Freezing Rain',
+        6001: timeOfDay === 'night' ? 'Freezing Rain' : 'Freezing Rain',
+        6200: timeOfDay === 'night' ? 'Light Freezing Rain' : 'Light Freezing Rain',
+        6201: timeOfDay === 'night' ? 'Heavy Freezing Rain' : 'Heavy Freezing Rain',
+        7000: timeOfDay === 'night' ? 'Hail' : 'Hail',
+        7101: timeOfDay === 'night' ? 'Hail' : 'Hail',
+        7102: timeOfDay === 'night' ? 'Heavy Hail' : 'Heavy Hail',
+        8000: timeOfDay === 'night' ? 'Thunderstorm' : 'Thunderstorm',
+      },
+      pt: {
+        1000: timeOfDay === 'night' ? 'Céu Limpo' : 'Céu Limpo',
+        1100: timeOfDay === 'night' ? 'Parcialmente Nublado' : 'Parcialmente Nublado',
+        1101: timeOfDay === 'night' ? 'Parcialmente Nublado' : 'Parcialmente Nublado',
+        1102: timeOfDay === 'night' ? 'Parcialmente Nublado' : 'Parcialmente Nublado',
+        1001: timeOfDay === 'night' ? 'Nublado' : 'Nublado',
+        2000: timeOfDay === 'night' ? 'Neblina' : 'Neblina',
+        2100: timeOfDay === 'night' ? 'Neblina Leve' : 'Neblina Leve',
+        4000: timeOfDay === 'night' ? 'Chuva' : 'Chuva',
+        4001: timeOfDay === 'night' ? 'Chuva' : 'Chuva',
+        4200: timeOfDay === 'night' ? 'Chuva Leve' : 'Chuva Leve',
+        4201: timeOfDay === 'night' ? 'Chuva Forte' : 'Chuva Forte',
+        5000: timeOfDay === 'night' ? 'Neve' : 'Neve',
+        5001: timeOfDay === 'night' ? 'Neve' : 'Neve',
+        5100: timeOfDay === 'night' ? 'Neve Leve' : 'Neve Leve',
+        5101: timeOfDay === 'night' ? 'Neve Forte' : 'Neve Forte',
+        6000: timeOfDay === 'night' ? 'Chuva Congelante' : 'Chuva Congelante',
+        6001: timeOfDay === 'night' ? 'Chuva Congelante' : 'Chuva Congelante',
+        6200: timeOfDay === 'night' ? 'Chuva Congelante Leve' : 'Chuva Congelante Leve',
+        6201: timeOfDay === 'night' ? 'Chuva Congelante Forte' : 'Chuva Congelante Forte',
+        7000: timeOfDay === 'night' ? 'Granizo' : 'Granizo',
+        7101: timeOfDay === 'night' ? 'Granizo' : 'Granizo',
+        7102: timeOfDay === 'night' ? 'Granizo Pesado' : 'Granizo Pesado',
+        8000: timeOfDay === 'night' ? 'Tempestade' : 'Tempestade',
+      },
+      es: {
+        1000: timeOfDay === 'night' ? 'Cielo Despejado' : 'Cielo Despejado',
+        1100: timeOfDay === 'night' ? 'Parcialmente Nublado' : 'Parcialmente Nublado',
+        1101: timeOfDay === 'night' ? 'Parcialmente Nublado' : 'Parcialmente Nublado',
+        1102: timeOfDay === 'night' ? 'Parcialmente Nublado' : 'Parcialmente Nublado',
+        1001: timeOfDay === 'night' ? 'Nublado' : 'Nublado',
+        2000: timeOfDay === 'night' ? 'Niebla' : 'Niebla',
+        2100: timeOfDay === 'night' ? 'Niebla Ligera' : 'Niebla Ligera',
+        4000: timeOfDay === 'night' ? 'Lluvia' : 'Lluvia',
+        4001: timeOfDay === 'night' ? 'Lluvia' : 'Lluvia',
+        4200: timeOfDay === 'night' ? 'Lluvia Ligera' : 'Lluvia Ligera',
+        4201: timeOfDay === 'night' ? 'Lluvia Intensa' : 'Lluvia Intensa',
+        5000: timeOfDay === 'night' ? 'Nieve' : 'Nieve',
+        5001: timeOfDay === 'night' ? 'Nieve' : 'Nieve',
+        5100: timeOfDay === 'night' ? 'Nieve Ligera' : 'Nieve Ligera',
+        5101: timeOfDay === 'night' ? 'Nieve Intensa' : 'Nieve Intensa',
+        6000: timeOfDay === 'night' ? 'Lluvia Congelante' : 'Lluvia Congelante',
+        6001: timeOfDay === 'night' ? 'Lluvia Congelante' : 'Lluvia Congelante',
+        6200: timeOfDay === 'night' ? 'Lluvia Congelante Ligera' : 'Lluvia Congelante Ligera',
+        6201: timeOfDay === 'night' ? 'Lluvia Congelante Intensa' : 'Lluvia Congelante Intensa',
+        7000: timeOfDay === 'night' ? 'Granizo' : 'Granizo',
+        7101: timeOfDay === 'night' ? 'Granizo' : 'Granizo',
+        7102: timeOfDay === 'night' ? 'Granizo Intenso' : 'Granizo Intenso',
+        8000: timeOfDay === 'night' ? 'Tormenta' : 'Tormenta',
+      }
     };
 
-    return conditions[code] || 'Condição Desconhecida';
+    const languageConditions = conditions[language] || conditions.en;
+    return languageConditions[code] || 'Unknown Condition';
   }
 
   async getFlexibleWeather(
@@ -420,7 +474,14 @@ export class WeatherService {
       const queryTime = dayjs();
       console.log('Query time:', queryTime.format('YYYY-MM-DD HH:mm:ss'));
 
-      const location = request.location as string | { type?: 'Point'; coordinates?: [number, number]; name?: string };
+      // If no location is provided in the request, try to extract it from the query
+      let location: string | { type?: 'Point'; coordinates?: [number, number]; name?: string } = request.location;
+      if (!location) {
+        const locationAnalysis = await analyzeLocation(query, userId);
+        location = locationAnalysis.location;
+        console.log('Extracted location from query:', location);
+      }
+
       const locationParam = formatLocationParam(location);
       console.log('Location parameter:', locationParam);
 
@@ -576,8 +637,8 @@ export class WeatherService {
       console.log('Target temperature:', targetValues.temperature);
 
       if (targetValues.temperature === undefined || targetValues.temperature === null) {
-        console.error('Temperature is undefined or null in the API response');
-        throw new Error('Invalid temperature data from API');
+        console.warn('Temperature is undefined or null in the API response, using default value');
+        targetValues.temperature = 0;
       }
 
       const weatherDescription = getWeatherDescription(targetValues.weatherCode || 1000);
@@ -587,6 +648,15 @@ export class WeatherService {
       if (hour >= 5 && hour < 12) timeOfDay = 'morning';
       else if (hour >= 12 && hour < 18) timeOfDay = 'afternoon';
       else if (hour >= 18 && hour < 22) timeOfDay = 'evening';
+      else if (hour >= 22 || hour < 5) timeOfDay = 'night';
+
+      // For more precise time descriptions
+      let preciseTimeOfDay = timeOfDay;
+      if (hour >= 0 && hour < 5) preciseTimeOfDay = 'madrugada';
+      else if (hour >= 5 && hour < 12) preciseTimeOfDay = 'manhã';
+      else if (hour >= 12 && hour < 18) preciseTimeOfDay = 'tarde';
+      else if (hour >= 18 && hour < 22) preciseTimeOfDay = 'noite';
+      else preciseTimeOfDay = 'madrugada';
 
       const formattedWeatherData = formatWeatherDataForResponse(targetValues);
       console.log('Formatted weather data:', formattedWeatherData);
@@ -629,6 +699,7 @@ export class WeatherService {
         isFuture,
         targetDate: targetDayjs.format('YYYY-MM-DD'),
         targetTime: targetDayjs.format('HH:mm'),
+        queryTime: queryTime.format('YYYY-MM-DD HH:mm:ss'),
         precipitationIntensity: targetValues.precipitationIntensity,
         query
       };
@@ -638,15 +709,16 @@ export class WeatherService {
       const finalWeatherData: WeatherResponse = {
         location: locationParam,
         temperature: Math.round(targetValues.temperature).toString(),
-        condition: this.translateCondition(targetValues.weatherCode || 1000),
+        condition: this.translateCondition(targetValues.weatherCode || 1000, timeOfDay),
         high: Math.round(targetValues.temperatureMax || targetValues.temperature).toString(),
         low: Math.round(targetValues.temperatureMin || targetValues.temperature).toString(),
         precipitation: `${Math.round(targetValues.precipitationProbability * 100)}%`,
-        humidity: `${Math.round(targetValues.humidity * 100)}%`,
-        windSpeed: `${Math.round(targetValues.windSpeed)} mph`,
+        humidity: `${Math.round(targetValues.humidity)}%`,
+        windSpeed: `${Math.round(targetValues.windSpeed)} km/h`,
         weatherCode: targetValues.weatherCode || 1000,
         naturalResponse,
-        currentTime: dayjs(targetInterval.startTime).format('YYYY-MM-DD HH:mm:ss')
+        currentTime: dayjs(targetInterval.startTime).format('YYYY-MM-DD HH:mm:ss'),
+        queryTime: queryTime.format('YYYY-MM-DD HH:mm:ss')
       };
 
       return {

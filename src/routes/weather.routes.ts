@@ -16,6 +16,7 @@ interface LocationQuery {
   lat?: string;
   lon?: string;
 }
+
 export default async function weatherRoutes(fastify: FastifyInstance) {
   // Apply weather-specific rate limiting to all weather routes
   fastify.register(async (weatherInstance) => {
@@ -37,7 +38,7 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
         security: [{ bearerAuth: [] }],
         querystring: {
           type: 'object',
-          required: ['location', 'query'],
+          required: ['query'],
           properties: {
             location: {
               type: 'string',
@@ -48,7 +49,7 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
               type: 'string',
               minLength: 3,
               description: 'Natural language query about weather (e.g., "How will it be on Friday afternoon?")'
-            },
+            }
           }
         },
         response: {
