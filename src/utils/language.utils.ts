@@ -27,6 +27,12 @@ export interface PromptParams {
   precipitationIntensity: number;
   query: string;
   dateAnalysis?: string;
+  correctedTemperature?: number;
+  temperatureValidation?: {
+    min: number;
+    max: number;
+    season: string;
+  };
 }
 
 export interface WeatherAnalysis {
@@ -114,140 +120,55 @@ export const analyzeWeatherData = async (
   // Detect language from the query
   const language = await detectLanguage(params.query);
 
-  // Define language-specific prompts
-  const prompts = {
-    pt: `
-      Você é um assistente meteorológico amigável e prestativo. Analise os dados meteorológicos abaixo e forneça uma resposta natural e informativa em português.
-      
-      Localização: ${params.name}
-      Temperatura: ${params.temperature}°C
-      Condição: ${params.description}
-      Umidade: ${params.condition.humidity}%
-      Velocidade do Vento: ${params.condition.windSpeed} km/h
-      Cobertura de Nuvens: ${params.condition.cloudCover}%
-      Probabilidade de Precipitação: ${params.condition.precipitationProbability}%
-      Índice UV: ${params.condition.uvIndex}
-      
-      Período do Dia: ${params.timeOfDay}
-      Data: ${params.targetDate}
-      Horário: ${params.targetTime}
-      
-      Consulta do Usuário: "${params.query}"
-      
-      Forneça uma resposta natural e informativa em português, considerando:
-      1. Se é uma previsão futura ou atual (use "será" para futuro, "está" para presente)
-      2. O período exato do dia (madrugada, manhã, tarde, noite)
-      3. A temperatura e como ela será/será sentida naquele período
-      4. Condições meteorológicas apropriadas para o período
-      5. Informações relevantes sobre umidade, vento e precipitação
-      6. Recomendações úteis baseadas nas condições e período do dia
-      
-      IMPORTANTE:
-      - Se for noite/madrugada, não mencione sol ou condições ensolaradas
-      - Use descrições apropriadas para o período (ex: "céu estrelado" à noite, "céu limpo" durante o dia)
-      - Considere a sensação térmica para o período específico
-      - Forneça recomendações relevantes para o período
-      - Se for uma previsão futura, use o tempo futuro ("será", "estará", "haverá")
-      - Se for uma previsão atual, use o tempo presente ("está", "há")
-      
-      DETALHES ADICIONAIS:
-      - Se o usuário pedir mais detalhes ou parecer interessado em informações específicas, forneça:
-        1. Detalhes sobre a variação de temperatura ao longo do dia
-        2. Informações sobre a direção do vento e rajadas
-        3. Detalhes sobre a umidade relativa do ar
-        4. Informações sobre a pressão atmosférica
-        5. Previsão de chuva mais detalhada (intensidade, duração)
-        6. Recomendações específicas para atividades ao ar livre
-        7. Comparação com a média histórica para o período
-        8. Alertas meteorológicos relevantes
-      
-      Mantenha o tom amigável e profissional.
-    `,
-    en: `
-      You are a friendly and helpful weather assistant. Analyze the weather data below and provide a natural and informative response in English.
-      
-      Location: ${params.name}
-      Temperature: ${params.temperature}°C
-      Condition: ${params.description}
-      Humidity: ${params.condition.humidity}%
-      Wind Speed: ${params.condition.windSpeed} km/h
-      Cloud Cover: ${params.condition.cloudCover}%
-      Precipitation Probability: ${params.condition.precipitationProbability}%
-      UV Index: ${params.condition.uvIndex}
-      
-      Time of Day: ${params.timeOfDay}
-      Date: ${params.targetDate}
-      Time: ${params.targetTime}
-      
-      User Query: "${params.query}"
-      
-      Provide a natural and informative response in English, considering:
-      1. The exact time of day (early morning, morning, afternoon, evening, night)
-      2. The current temperature and how it feels during that time
-      3. Weather conditions appropriate for the time (e.g., don't mention sun during night)
-      4. Relevant information about humidity, wind, and precipitation
-      5. Useful recommendations based on conditions and time of day
-      
-      IMPORTANT:
-      - If it's night/early morning, don't mention sun or sunny conditions
-      - Use appropriate descriptions for the time (e.g., "starry sky" at night, "clear sky" during day)
-      - Consider the temperature feel for the specific time
-      - Provide relevant recommendations for the time (e.g., light jacket at night, sunscreen during day)
-      
-      Keep the tone friendly and professional.
-    `,
-    es: `
-      Eres un asistente meteorológico amable y útil. Analiza los datos meteorológicos a continuación y proporciona una respuesta natural e informativa en español.
-      
-      Ubicación: ${params.name}
-      Temperatura: ${params.temperature}°C
-      Condición: ${params.description}
-      Humedad: ${params.condition.humidity}%
-      Velocidad del viento: ${params.condition.windSpeed} km/h
-      Cobertura de nubes: ${params.condition.cloudCover}%
-      Probabilidad de precipitación: ${params.condition.precipitationProbability}%
-      Índice UV: ${params.condition.uvIndex}
-      
-      Hora del día: ${params.timeOfDay}
-      Fecha: ${params.targetDate}
-      Hora: ${params.targetTime}
-      
-      Consulta del usuario: "${params.query}"
-      
-      Proporciona una respuesta natural e informativa en español, considerando:
-      1. La hora exacta del día (madrugada, mañana, tarde, noche)
-      2. La temperatura actual y cómo se siente en ese momento
-      3. Las condiciones climáticas apropiadas para el momento (ej: no mencionar sol durante la noche)
-      4. Información relevante sobre humedad, viento y precipitación
-      5. Recomendaciones útiles basadas en las condiciones y la hora
-      
-      IMPORTANTE:
-      - Si es de noche/madrugada, no menciones sol o condiciones soleadas
-      - Usa descripciones apropiadas para el momento (ej: "cielo estrellado" de noche, "cielo despejado" de día)
-      - Considera la sensación térmica para el momento específico
-      - Proporciona recomendaciones relevantes para la hora (ej: abrigo ligero de noche, protector solar de día)
-      
-      Mantén un tono amable y profesional.
-    `
-  };
+  const prompt = `
+    You are Nuvigo, a friendly and professional weather assistant. Analyze the weather data below and generate a natural, localized, and informative response tailored to the user's language and context.
 
-  // Select the appropriate prompt based on detected language
-  const prompt = prompts[language as keyof typeof prompts] || prompts.en;
+    Weather Data:
+    Location: ${params.name}
+    Temperature: ${params.temperature}°C
+    Condition: ${params.description}
+    Humidity: ${params.condition.humidity}%
+    Wind Speed: ${params.condition.windSpeed} km/h
+    Cloud Cover: ${params.condition.cloudCover}%
+    Precipitation Probability: ${params.condition.precipitationProbability}%
+    UV Index: ${params.condition.uvIndex}
+
+    Time Context:
+    Date: ${params.targetDate}
+    Time: ${params.targetTime}
+    Time of Day: ${params.timeOfDay}
+
+    User Query: "${params.query}"
+
+    Generate a concise and friendly response that:
+    1. Reflects the exact time of day with contextually appropriate terms (e.g., "cool morning," "mild afternoon," "chilly evening")
+    2. Mentions the observed temperature and how it feels (cold, mild, warm) based on time of day
+    3. Describes the current weather conditions naturally (no mention of sun at night, etc.)
+    4. Includes helpful notes on humidity, wind, or chances of rain if relevant
+    5. Provides useful and culturally relevant advice (e.g., "leve um casaco leve" for Brazilians in the morning if it's cold)
+    6. Uses the same language the user spoke in their query
+
+    Important:
+    - Keep the tone warm, natural, and authoritative
+    - Be language-agnostic: understand and respond in the user's language
+    - Limit the output to under 100 words, unless the user asks for more details
+    - Don't mention sun or sunny terms during night hours
+    - Add recommendations relevant to the time and weather (jacket, umbrella, sunscreen, hydration)
+
+    Example style (Portuguese):
+    "Bom dia! Agora em Nova Iorque faz 4°C com céu parcialmente nublado. A umidade está em 75%, o que pode deixar o ar um pouco úmido. Há 20% de chance de chuva, então um casaco leve pode ser uma boa ideia. O vento está moderado a 12 km/h. Uma manhã fria, ideal pra se agasalhar bem!"
+  `;
 
   const messages: ChatCompletionMessageParam[] = [
     {
-      role: 'system', content: language === 'pt' ? 'Você é um assistente meteorológico amigável e útil.' :
-        language === 'es' ? 'Eres un asistente meteorológico amable y útil.' :
-          'You are a friendly and helpful weather assistant.'
+      role: 'system',
+      content: 'You are Nuvigo, a friendly and professional weather assistant.'
     },
     { role: 'user', content: prompt }
   ];
 
   const response = await createOpenAIResponse(messages);
-  const naturalResponse = response.choices[0].message?.content ||
-    (language === 'pt' ? 'Desculpe, não consegui gerar uma resposta adequada.' :
-      language === 'es' ? 'Lo siento, no pude generar una respuesta adecuada.' :
-        'Sorry, I could not generate an appropriate response.');
+  const naturalResponse = response.choices[0].message?.content || 'Sorry, I could not generate an appropriate response.';
 
   // Create or update chat session
   const session = await chatService.findOrCreateActiveSession(userId);
