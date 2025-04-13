@@ -175,6 +175,7 @@ DATABASE_URL="postgresql://user:password@localhost:5432/nuvigo"
 TOMORROW_API_KEY="sua-chave-api-tomorrow"
 OPENAI_API_KEY="sua-chave-api-openai"
 JWT_SECRET="sua-chave-secreta-jwt"
+GOOGLE_MAPS_API_KEY="sua-chave-secreta-google-maps"
 ```
 
 ## 🚀 Instalação
