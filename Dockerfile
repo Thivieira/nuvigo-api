@@ -7,7 +7,8 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # Rebuild the source code only when needed
 FROM deps AS builder
@@ -22,7 +23,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production image, copy all the files and run
-FROM base AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production \
@@ -39,14 +40,6 @@ COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
 COPY --from=builder --chown=appuser:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=appuser:nodejs /app/prisma ./prisma
-COPY .env .env
-
-# Generate Prisma client in the runner stage
-RUN npx prisma generate && \
-    # Create symlink for the generated client
-    mkdir -p node_modules/@prisma && \
-    ln -s ../../prisma/app/generated/prisma/client node_modules/@prisma/generated && \
-    chown -R appuser:nodejs node_modules/@prisma
 
 USER appuser
 
