@@ -8,6 +8,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string(),
   DATABASE_URL: z.string(),
   TOMORROW_API_KEY: z.string(),
+  GOOGLE_MAPS_API_KEY: z.string(),
 });
 
 const _env = envSchema.safeParse(process.env);

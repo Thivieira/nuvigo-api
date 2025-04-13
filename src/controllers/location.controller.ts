@@ -8,6 +8,45 @@ interface AddLocationRequest {
 }
 
 export class LocationController {
+
+  // try to find location from google maps api
+  async getLocationFromGoogleMaps(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { name } = request.query as { name: string };
+
+      if (!name) {
+        throw new Error('Location name is required');
+      }
+
+      const location = await LocationService.getLocationNameFromGoogleMaps(name);
+
+      if (!location) {
+        return reply.status(404).send({ error: 'Location not found' });
+      }
+
+      // Extract city/neighborhood/address from formatted address
+      const addressParts = location.formattedAddress.split(',');
+      const filteredAddress = addressParts
+        .filter(part => {
+          const lowerPart = part.toLowerCase().trim();
+          return !lowerPart.includes('state') &&
+            !lowerPart.includes('country') &&
+            !lowerPart.includes('brazil') &&
+            !lowerPart.includes('br');
+        })
+        .map(part => part.trim())
+        .join(', ');
+
+      return reply.send({
+        name: filteredAddress || location.formattedAddress,
+        coordinates: [location.lat, location.lng]
+      });
+    } catch (error) {
+      console.error('Error getting location from Google Maps:', error);
+      return reply.status(500).send({ error: 'Failed to get location from Google Maps' });
+    }
+  }
+
   static async getLocations(request: FastifyRequest, reply: FastifyReply) {
     try {
       const user = request.user as JWTPayload;

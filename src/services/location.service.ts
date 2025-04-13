@@ -1,6 +1,9 @@
-import { Prisma, Location as PrismaLocation } from '@prisma/generated/client';
+import { Location as PrismaLocation } from '@prisma/generated/client';
 import { HTTPException } from '../exceptions';
 import { prisma } from '@/lib/prisma';
+import { reverseGeocode, ReverseGeocodeResponse } from '@/lib/googleMapsClient';
+import axios from 'axios';
+import { env } from '@/env';
 
 export class LocationService {
   static async getUserLocations(userId: string): Promise<PrismaLocation[]> {
@@ -134,5 +137,38 @@ export class LocationService {
         }
       }
     });
+  }
+
+  static async getLocationNameFromGoogleMaps(name: string) {
+    try {
+      const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+        params: {
+          address: name,
+          key: env.GOOGLE_MAPS_API_KEY,
+          components: 'country:BR|locality|neighborhood|route|street_address'
+        },
+      });
+
+      if (response.data.status === 'OK') {
+        console.log('Geocoding response:', response.data);
+        const result = response.data.results[0];
+        return {
+          lat: result.geometry.location.lat,
+          lng: result.geometry.location.lng,
+          formattedAddress: result.formatted_address,
+        };
+      } else {
+        console.error('Geocoding failed:', response.data.status);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error getting location from Google Maps:', error);
+      return null;
+    }
+  }
+
+  static async getCoordinatesFromGoogleMaps(lat: number, lng: number): Promise<ReverseGeocodeResponse> {
+    const location = await reverseGeocode(lat, lng);
+    return location;
   }
 } 

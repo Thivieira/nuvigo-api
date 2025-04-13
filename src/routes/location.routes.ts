@@ -3,6 +3,8 @@ import { LocationController } from '../controllers/location.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 export async function locationRoutes(fastify: FastifyInstance) {
+  const locationController = new LocationController();
+
   // Apply authentication middleware to all location routes
   fastify.addHook('onRequest', authenticate);
 
@@ -236,4 +238,30 @@ export async function locationRoutes(fastify: FastifyInstance) {
     },
     handler: LocationController.deleteLocation
   });
+
+  // Get location from Google Maps
+  fastify.get('/google-maps', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          lat: { type: 'number' },
+          lng: { type: 'number' }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            coordinates: {
+              type: 'array',
+              items: { type: 'number' }
+            }
+          }
+        }
+      }
+    }
+  }, locationController.getLocationFromGoogleMaps.bind(locationController));
 } 
