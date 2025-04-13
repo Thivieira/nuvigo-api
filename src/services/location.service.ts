@@ -111,10 +111,6 @@ export class LocationService {
       where: { userId },
     });
 
-    if (userLocations.length <= 1) {
-      throw new HTTPException(400, { message: 'Cannot delete the last location' });
-    }
-
     const locationToDelete = userLocations.find((loc) => loc.id === locationId);
     if (!locationToDelete) {
       throw new HTTPException(404, { message: 'Location not found' });
@@ -127,8 +123,8 @@ export class LocationService {
         where: { id: locationId },
       });
 
-      // If the deleted location was active, set another location as active
-      if (locationToDelete.isActive) {
+      // If the deleted location was active and there are other locations, set another location as active
+      if (locationToDelete.isActive && userLocations.length > 1) {
         const newActiveLocation = userLocations.find((loc) => loc.id !== locationId);
         if (newActiveLocation) {
           await tx.location.update({
