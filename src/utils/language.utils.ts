@@ -121,7 +121,7 @@ export const analyzeWeatherData = async (
   const language = await detectLanguage(params.query);
 
   const prompt = `
-    You are Nuvigo, a friendly and professional weather assistant. Your task is to analyze the weather data below and generate a clear, localized, and informative response based on the user's query. Always respond in the same language the user used.
+    You are Nuvigo, a friendly and professional weather assistant. Your task is to analyze the weather data below and generate a clear, localized, and informative response based on the user's query and conversation history. Always respond in the same language the user used.
 
     ---
 
@@ -147,22 +147,25 @@ export const analyzeWeatherData = async (
 
     Generate a concise, friendly, and professional response that:
 
-    1. Reflects the **exact time of day** using natural expressions (e.g., "manhã fria", "tarde amena", "noite fresca")
-    2. Mentions the **observed temperature** and how it **feels** based on the time (e.g., cold, mild, warm)
-    3. Describes the **weather conditions** in a natural and realistic way (e.g., avoid "sunny" during night)
-    4. Includes relevant details about **humidity, wind, and chance of rain** when meaningful
-    5. Provides **practical and culturally relevant suggestions** (e.g., "leve um casaco leve" for Brazilians in a chilly morning)
-    6. Uses the **same language as the user query** (e.g., reply in Portuguese if the question is in Portuguese)
+    1. Follows the natural flow of conversation - don't repeat greetings if already established
+    2. Acknowledges any corrections or clarifications from the user
+    3. Reflects the **exact time of day** using natural expressions (e.g., "manhã fria", "tarde amena", "noite fresca")
+    4. Mentions the **observed temperature** and how it **feels** based on the time
+    5. Describes the **weather conditions** in a natural and realistic way
+    6. Includes relevant details about **humidity, wind, and chance of rain** when meaningful
+    7. Provides **practical and culturally relevant suggestions**
+    8. Uses the **same language as the user query**
 
     Important:
     - Keep the tone **warm, natural, and authoritative**
     - Be **language-agnostic**: understand and respond in the user's language
     - Keep the output under **100 words**, unless the user asks for more detail
-    - Avoid mentions of sun or brightness at **night or early morning**
-    - Include **recommendations** relevant to the time and conditions (e.g., jacket, umbrella, sunscreen, hydration)
+    - Avoid repeating greetings if they've already been used in the conversation
+    - Acknowledge any corrections or clarifications from the user
+    - Make the response feel like a natural continuation of the conversation
 
     Expected style (if user speaks Portuguese):
-    > "Bom dia! Agora em Nova Iorque faz 4°C com céu parcialmente nublado. A umidade está em 75%, o que pode deixar o ar um pouco úmido. Há 20% de chance de chuva, então um casaco leve pode ser uma boa ideia. O vento está moderado a 12 km/h. Uma manhã fria, ideal pra se agasalhar bem!"
+    > "Em Nova Iorque, a temperatura está em 8.5°C, com céu claro e apenas 10% de cobertura de nuvens. A umidade está em 70% e o vento é leve, a 4.8 km/h. Não há previsão de chuva, então você pode aproveitar o dia sem preocupações. Uma sugestão é levar um casaco leve, caso a temperatura caia à noite."
   `;
 
   const messages: ChatCompletionMessageParam[] = [
@@ -235,10 +238,25 @@ export async function analyzeLocation(
   chatHistory?: Chat[]
 ): Promise<LocationAnalysis> {
   try {
-    // 1. Try to extract location from the text
+    // 1. First try to extract location from the current query
     const extractedLocation = await extractLocationFromText(text);
+    console.log('Extracted location from current query:', extractedLocation);
 
-    // 2. Check chat history for location context
+    // 2. If a new location is mentioned in the current query, use it
+    if (extractedLocation) {
+      // Check if this is a new location mention (not a correction)
+      const isNewLocation = !isLocationCorrectionQuery(text);
+      if (isNewLocation) {
+        console.log('Using new location from current query:', extractedLocation);
+        return {
+          location: extractedLocation,
+          confidence: 0.9,
+          source: 'context'
+        };
+      }
+    }
+
+    // 3. Check chat history for location context
     if (chatHistory && chatHistory.length > 0) {
       const lastLocationMention = await findLastLocationMention(chatHistory);
       if (lastLocationMention) {
@@ -263,30 +281,7 @@ export async function analyzeLocation(
       }
     }
 
-    if (extractedLocation) {
-      // Validate if the extracted location exists in user's saved locations
-      const userLocations = await LocationService.getUserLocations(userId);
-      const matchingLocation = userLocations.find(loc =>
-        loc.name.toLowerCase() === extractedLocation.toLowerCase()
-      );
-
-      if (matchingLocation) {
-        return {
-          location: matchingLocation.name,
-          confidence: 0.9,
-          source: 'saved'
-        };
-      }
-
-      // If not found in saved locations, return the extracted location
-      return {
-        location: extractedLocation,
-        confidence: 0.7,
-        source: 'context'
-      };
-    }
-
-    // 3. Try to get user's active location
+    // 4. Try to get user's active location
     const userLocations = await LocationService.getUserLocations(userId);
     const activeLocation = userLocations.find(loc => loc.isActive);
 
@@ -298,7 +293,7 @@ export async function analyzeLocation(
       };
     }
 
-    // 4. If no location could be found, throw an error
+    // 5. If no location could be found, throw an error
     throw new Error('LOCATION_REQUIRED');
   } catch (error) {
     if (error instanceof Error && error.message === 'LOCATION_REQUIRED') {
@@ -340,7 +335,11 @@ function isLocationCorrectionQuery(text: string): boolean {
     'wrong',
     'errado',
     'incorrect',
-    'incorreto'
+    'incorreto',
+    'corrige',
+    'corrigir',
+    'correto',
+    'correta'
   ];
 
   return correctionKeywords.some(keyword =>

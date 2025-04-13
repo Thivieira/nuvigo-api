@@ -5,10 +5,14 @@ import { env } from '@/env';
 import { ChatService } from "@/services/chat.service";
 import axios from 'axios';
 import { TimelineRequest } from '@/types/weather';
-import { Chat } from '@prisma/generated/client';
+import { Chat, ChatSession } from '@prisma/generated/client';
 import { createOpenAIResponse } from '@/utils/openAI.utils';
 import { ChatCreate } from '@/types/chat';
 import { OpenAI } from 'openai';
+import { Location as PrismaLocation } from '@prisma/generated/client';
+import { LocationService } from '@/services/location.service';
+
+type ChatCompletionMessageParam = OpenAI.Chat.ChatCompletionMessageParam;
 
 interface WeatherResponse {
   location: string;
@@ -98,6 +102,19 @@ interface FlexibleWeatherResult {
   sessionId: string;
   naturalResponse: string;
   requiresLocation?: boolean;
+}
+
+async function translateLocationToEnglish(location: string): Promise<string> {
+  try {
+    const prompt = `Translate the following location name to English. Return ONLY the English name, nothing else. If the location is already in English, return it as is. Location: "${location}"`;
+    const messages: ChatCompletionMessageParam[] = [{ role: 'user', content: prompt }];
+    const response = await createOpenAIResponse(messages);
+    const translatedLocation = response.choices[0].message?.content?.trim();
+    return translatedLocation || location;
+  } catch (error) {
+    console.error('Error translating location to English:', error);
+    return location;
+  }
 }
 
 export class WeatherService {
@@ -551,6 +568,10 @@ export class WeatherService {
       const locationParam = formatLocationParam(location);
       console.log('Location parameter:', locationParam);
 
+      // Translate location to English for API request
+      const translatedLocation = await translateLocationToEnglish(locationParam);
+      console.log('Translated location for API:', translatedLocation);
+
       // Analyze the date and time in the query using chat history
       const dateAnalysis = await analyzeDateWithHistory(query, history);
       console.log('Date analysis:', dateAnalysis);
@@ -586,16 +607,20 @@ export class WeatherService {
       }
 
       const timelineRequest: TimelineRequest = {
-        location: locationParam,
+        location: translatedLocation,
         fields: DEFAULT_FIELDS,
         timesteps: ['1h'],
         startTime: isFuture ? targetDayjs.format('YYYY-MM-DD') : 'now',
         units: 'metric',
-        timezone: 'America/Sao_Paulo',
+        timezone: 'America/New_York',
         endTime: isFuture ? targetDayjs.add(1, 'day').format('YYYY-MM-DD') : dayjs().add(5, 'days').format('YYYY-MM-DD')
       };
 
-      console.log('Making timelines API request to Tomorrow.io with params:', timelineRequest);
+      console.log('Making timelines API request to Tomorrow.io with params:', {
+        ...timelineRequest,
+        location: translatedLocation,
+        apiKey: '***' // Hide the API key in logs
+      });
 
       const weatherUrl = `https://api.tomorrow.io/v4/timelines?apikey=${env.TOMORROW_API_KEY}`;
       console.log('Full timelines API URL:', weatherUrl);
@@ -607,6 +632,15 @@ export class WeatherService {
           headers: { 'Content-Type': 'application/json' }
         });
         console.log('Timelines API call completed with status:', weatherResponse.status);
+
+        // Log the location data from the response
+        if (weatherResponse.data?.data?.timelines?.[0]?.intervals?.[0]?.values) {
+          console.log('Location data from API response:', {
+            location: weatherResponse.data?.data?.location,
+            coordinates: weatherResponse.data?.data?.coordinates,
+            time: weatherResponse.data?.data?.timelines[0].intervals[0].startTime
+          });
+        }
       } catch (error: any) {
         console.error('Error calling timelines API:', error);
         throw new Error(`Failed to fetch weather data: ${error.message}`);
