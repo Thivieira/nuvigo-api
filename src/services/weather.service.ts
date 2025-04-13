@@ -93,6 +93,7 @@ function formatLocationParam(location: string | { type?: 'Point'; coordinates?: 
 interface FlexibleWeatherResult {
   weatherData: WeatherResponse;
   sessionId: string;
+  naturalResponse: string;
 }
 
 export class WeatherService {
@@ -525,7 +526,19 @@ export class WeatherService {
         throw new Error('Invalid temperature data from API');
       }
 
-      const weatherDescription = getWeatherDescription(values.weatherCode || 1000);
+      // For future dates, find the specific interval for the target date/time
+      let targetInterval = currentInterval;
+      if (isFuture) {
+        targetInterval = weatherData.data.timelines[0].intervals.find(interval =>
+          dayjs(interval.startTime).format('YYYY-MM-DD') === targetDate
+        ) || currentInterval;
+        console.log('Target interval for future date:', targetInterval);
+      }
+
+      const targetValues = targetInterval.values;
+      console.log('Target temperature:', targetValues.temperature);
+
+      const weatherDescription = getWeatherDescription(targetValues.weatherCode || 1000);
 
       const hour = dayjs(currentInterval.startTime).hour();
       let timeOfDay = 'night';
@@ -591,23 +604,24 @@ export class WeatherService {
       // Create the final weather data response object
       const finalWeatherData: WeatherResponse = {
         location: locationParam,
-        temperature: Math.round(values.temperature).toString(),
-        condition: this.translateCondition(values.weatherCode || 1000),
-        high: Math.round(values.temperatureMax || 0).toString(),
-        low: Math.round(values.temperatureMin || 0).toString(),
-        precipitation: `${Math.round(values.precipitationProbability * 100)}%`,
-        humidity: `${Math.round(values.humidity * 100)}%`,
-        windSpeed: `${Math.round(values.windSpeed)} mph`,
-        weatherCode: values.weatherCode || 1000,
+        temperature: Math.round(targetValues.temperature).toString(),
+        condition: this.translateCondition(targetValues.weatherCode || 1000),
+        high: Math.round(targetValues.temperatureMax || targetValues.temperature).toString(),
+        low: Math.round(targetValues.temperatureMin || targetValues.temperature).toString(),
+        precipitation: `${Math.round(targetValues.precipitationProbability * 100)}%`,
+        humidity: `${Math.round(targetValues.humidity * 100)}%`,
+        windSpeed: `${Math.round(targetValues.windSpeed)} mph`,
+        weatherCode: targetValues.weatherCode || 1000,
         naturalResponse: naturalResponse,
-        currentTime: dayjs(currentInterval.startTime).format('YYYY-MM-DD HH:mm:ss')
+        currentTime: dayjs(targetInterval.startTime).format('YYYY-MM-DD HH:mm:ss')
       };
 
       console.log('Final response temperature:', finalWeatherData.temperature);
 
       return {
         weatherData: finalWeatherData,
-        sessionId: sessionId
+        sessionId: sessionId,
+        naturalResponse: naturalResponse
       };
     } catch (error) {
       if (error instanceof Error) {

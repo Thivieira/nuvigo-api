@@ -41,8 +41,8 @@ app.register(locationRoutes, { prefix: '/location' });
 const start = async () => {
   try {
     await app.listen({ port: env.PORT, host: '0.0.0.0' });
-    console.log('Server is running on http://localhost:3333');
-    console.log('Documentation is running on http://localhost:3333/documentation');
+    console.log(`Server is running on http://localhost:${env.PORT}`);
+    console.log(`Documentation is running on http://localhost:${env.PORT}/documentation`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

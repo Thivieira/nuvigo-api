@@ -121,7 +121,11 @@ export class WeatherController extends BaseController {
         title
       });
 
-      return this.sendSuccess(reply, result);
+      return this.sendSuccess(reply, {
+        weatherData: result.weatherData,
+        sessionId: result.sessionId,
+        naturalResponse: result.naturalResponse
+      });
     } catch (error) {
       console.log('Error in getFlexibleWeather:', error);
       return this.sendError(reply, this.handleError(error));

@@ -14,27 +14,38 @@ export class ChatController {
 
   async createChat(request: FastifyRequest<{ Body: ChatCreate }>, reply: FastifyReply) {
     try {
-      // Verify that the session exists and user has access
-      const session = await this.chatSessionService.findSessionById(request.body.chatSessionId);
+      let chatSessionId = request.body.chatSessionId;
 
-      if (!session) {
-        return reply.code(404).send({
-          error: 'Session not found',
-          code: 'SESSION_NOT_FOUND',
-          details: { message: 'The chat session does not exist' }
-        });
+      // If no chatSessionId is provided, create a new session
+      if (!chatSessionId) {
+        const newSession = await this.chatSessionService.createSession(request.user!.userId);
+        chatSessionId = newSession.id;
+      } else {
+        // Verify that the session exists and user has access
+        const session = await this.chatSessionService.findSessionById(chatSessionId);
+
+        if (!session) {
+          return reply.code(404).send({
+            error: 'Session not found',
+            code: 'SESSION_NOT_FOUND',
+            details: { message: 'The chat session does not exist' }
+          });
+        }
+
+        // Check if user is admin or owner of the session
+        if (request.user!.role !== 'ADMIN' && request.user!.userId !== session.userId) {
+          return reply.code(403).send({
+            error: 'Forbidden',
+            code: 'FORBIDDEN',
+            details: { message: 'You do not have permission to add messages to this chat session' }
+          });
+        }
       }
 
-      // Check if user is admin or owner of the session
-      if (request.user!.role !== 'ADMIN' && request.user!.userId !== session.userId) {
-        return reply.code(403).send({
-          error: 'Forbidden',
-          code: 'FORBIDDEN',
-          details: { message: 'You do not have permission to add messages to this chat session' }
-        });
-      }
-
-      const chat = await this.chatService.create(request.user!.userId, request.body);
+      const chat = await this.chatService.create(request.user!.userId, {
+        ...request.body,
+        chatSessionId
+      });
       return reply.send(chat);
     } catch (error) {
       return reply.code(500).send({ error: 'Failed to create chat message' });

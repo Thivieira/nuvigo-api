@@ -19,14 +19,14 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       method: 'POST',
       url: '/',
       schema: {
-        description: 'Criar uma nova mensagem de chat',
+        description: 'Criar uma nova mensagem de chat. Se chatSessionId não for fornecido, uma nova sessão será criada automaticamente.',
         tags: ['chat-message'],
         security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
-          required: ['chatSessionId', 'message', 'role', 'turn'],
+          required: ['message', 'role', 'turn'],
           properties: {
-            chatSessionId: { type: 'string', format: 'uuid' },
+            chatSessionId: { type: 'string', format: 'uuid', nullable: true },
             message: { type: 'string' },
             role: { type: 'string', enum: ['user', 'assistant'] },
             turn: { type: 'number' },

@@ -55,6 +55,7 @@ export default async function weatherRoutes(fastify: FastifyInstance) {
           200: {
             type: 'object',
             properties: {
+              naturalResponse: { type: 'string' },
               weatherData: {
                 type: 'object',
                 properties: {
