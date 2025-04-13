@@ -5,7 +5,6 @@ import { env } from '@/env';
 import { ChatService } from "./chat.service";
 import axios from 'axios';
 import { TimelineRequest } from '@/types/weather';
-import { createOpenAIResponse } from '@/utils/openAI.utils';
 
 
 
@@ -492,92 +491,37 @@ export class WeatherService {
       const history = sessionData?.chats ?? [];
 
       // Analyze the date and time in the query using chat history
-      const dateAnalysisPrompt = `
-        Analyze the following weather query and chat history to determine the date and time the user is asking about.
-        
-        Query: "${query}"
-        
-        Chat history:
-        ${history.map(chat => `${chat.role}: ${chat.message}`).join('\n')}
-        
-        Determine:
-        1. If this query is about a specific future date or day of the week
-        2. The specific time of day (morning, afternoon, evening, night) if mentioned
-        3. If the time is implied by the chat history
-        
-        IMPORTANT: Return ONLY a valid JSON object with no markdown formatting or additional text.
-        The response must be parseable by JSON.parse().
-        
-        {
-          "date": "YYYY-MM-DD" or "current",
-          "time": "morning", "afternoon", "evening", "night" or "current",
-          "explanation": "Brief explanation of how the date/time was determined"
-        }
-      `;
-
-      const dateAnalysisResponse = await createOpenAIResponse([{ role: 'user', content: dateAnalysisPrompt }]);
-
-      // Clean the response to ensure it's valid JSON
-      const cleanedResponse = dateAnalysisResponse.choices[0].message?.content
-        ?.replace(/```json/g, '')
-        ?.replace(/```/g, '')
-        ?.trim() || '{"date":"current","time":"current","explanation":"No response from AI"}';
-
-      let dateAnalysis;
-      try {
-        dateAnalysis = JSON.parse(cleanedResponse);
-      } catch (error) {
-        console.error('Failed to parse date analysis response:', error);
-        console.error('Raw response:', cleanedResponse);
-        dateAnalysis = {
-          date: 'current',
-          time: 'current',
-          explanation: 'Failed to parse date analysis'
-        };
-      }
-
-      console.log('Date and time analysis:', dateAnalysis);
+      const dateAnalysis = await analyzeDateWithHistory(query, history);
+      console.log('Date analysis:', dateAnalysis);
 
       let isFuture = false;
       let targetDayjs = queryTime;
       let targetTime = 'current';
 
-      if (dateAnalysis.date !== 'current' && dateAnalysis.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const parsedTargetDate = dayjs(dateAnalysis.date);
+      if (dateAnalysis !== 'current' && dateAnalysis.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const parsedTargetDate = dayjs(dateAnalysis);
         const daysDifference = parsedTargetDate.diff(queryTime, 'day');
 
         if (daysDifference < 0) {
-          console.log(`Target date ${dateAnalysis.date} is in the past, using current date instead`);
+          console.log(`Target date ${dateAnalysis} is in the past, using current date instead`);
           isFuture = false;
         } else if (daysDifference > 5) {
-          console.log(`Target date ${dateAnalysis.date} is too far in the future (${daysDifference} days), limiting to 5 days`);
+          console.log(`Target date ${dateAnalysis} is too far in the future (${daysDifference} days), limiting to 5 days`);
           isFuture = true;
           targetDayjs = queryTime.add(5, 'day');
         } else {
           isFuture = true;
           targetDayjs = parsedTargetDate;
-          console.log(`AI detected future date: ${dateAnalysis.date} (${daysDifference} days ahead)`);
+          console.log(`AI detected future date: ${dateAnalysis} (${daysDifference} days ahead)`);
         }
       }
 
       // Set the target time based on the analysis
-      if (dateAnalysis.time !== 'current') {
-        targetTime = dateAnalysis.time;
+      if (dateAnalysis !== 'current' && dateAnalysis.match(/^[0-9]{2}:[0-9]{2}$/)) {
+        targetTime = dateAnalysis;
         // Adjust the targetDayjs to the appropriate time of day
-        switch (targetTime) {
-          case 'morning':
-            targetDayjs = targetDayjs.hour(9).minute(0);
-            break;
-          case 'afternoon':
-            targetDayjs = targetDayjs.hour(15).minute(0);
-            break;
-          case 'evening':
-            targetDayjs = targetDayjs.hour(18).minute(0);
-            break;
-          case 'night':
-            targetDayjs = targetDayjs.hour(21).minute(0);
-            break;
-        }
+        const [hour, minute] = dateAnalysis.split(':').map(Number);
+        targetDayjs = targetDayjs.hour(hour).minute(minute);
       }
 
       const timelineRequest: TimelineRequest = {

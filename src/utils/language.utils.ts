@@ -117,35 +117,38 @@ export const analyzeWeatherData = async (
   // Define language-specific prompts
   const prompts = {
     pt: `
-      Você é um assistente meteorológico amigável e útil. Analise os dados meteorológicos abaixo e forneça uma resposta natural e informativa em português.
+      Você é um assistente meteorológico amigável e prestativo. Analise os dados meteorológicos abaixo e forneça uma resposta natural e informativa em português.
       
       Localização: ${params.name}
       Temperatura: ${params.temperature}°C
       Condição: ${params.description}
       Umidade: ${params.condition.humidity}%
-      Velocidade do vento: ${params.condition.windSpeed} km/h
-      Cobertura de nuvens: ${params.condition.cloudCover}%
-      Probabilidade de precipitação: ${params.condition.precipitationProbability}%
+      Velocidade do Vento: ${params.condition.windSpeed} km/h
+      Cobertura de Nuvens: ${params.condition.cloudCover}%
+      Probabilidade de Precipitação: ${params.condition.precipitationProbability}%
       Índice UV: ${params.condition.uvIndex}
       
-      Hora do dia: ${params.timeOfDay}
+      Período do Dia: ${params.timeOfDay}
       Data: ${params.targetDate}
-      Hora: ${params.targetTime}
+      Horário: ${params.targetTime}
       
-      Consulta do usuário: "${params.query}"
+      Consulta do Usuário: "${params.query}"
       
       Forneça uma resposta natural e informativa em português, considerando:
-      1. A hora exata do dia (madrugada, manhã, tarde, noite)
-      2. A temperatura atual e como ela se sente no período do dia
-      3. As condições do tempo apropriadas para o período (ex: não mencionar sol durante a noite)
-      4. Informações relevantes sobre umidade, vento e precipitação
-      5. Recomendações úteis baseadas nas condições e hora do dia
+      1. Se é uma previsão futura ou atual (use "será" para futuro, "está" para presente)
+      2. O período exato do dia (madrugada, manhã, tarde, noite)
+      3. A temperatura e como ela será/será sentida naquele período
+      4. Condições meteorológicas apropriadas para o período
+      5. Informações relevantes sobre umidade, vento e precipitação
+      6. Recomendações úteis baseadas nas condições e período do dia
       
       IMPORTANTE:
-      - Se for noite/madrugada, não mencione sol ou céu ensolarado
-      - Use descrições apropriadas para o período (ex: "céu estrelado" à noite, "céu claro" durante o dia)
+      - Se for noite/madrugada, não mencione sol ou condições ensolaradas
+      - Use descrições apropriadas para o período (ex: "céu estrelado" à noite, "céu limpo" durante o dia)
       - Considere a sensação térmica para o período específico
-      - Forneça recomendações relevantes para a hora (ex: agasalho à noite, protetor solar durante o dia)
+      - Forneça recomendações relevantes para o período
+      - Se for uma previsão futura, use o tempo futuro ("será", "estará", "haverá")
+      - Se for uma previsão atual, use o tempo presente ("está", "há")
       
       Mantenha o tom amigável e profissional.
     `,
@@ -254,20 +257,25 @@ export async function analyzeDateWithHistory(query: string, history: Chat[]): Pr
   }).join('\n\n');
 
   const dateAnalysisPrompt = `
-    Analyze the following weather query and chat history to determine the date the user is asking about.
+    Analyze the following weather query and chat history to determine the date and time the user is asking about.
     
     Current query: "${query}"
     
     Chat history:
     ${historyContext}
     
-    Determine if this query is about a specific future date or day of the week.
-    If the query is ambiguous (like "today", "tomorrow", "this day", etc.), use the chat history to determine the context.
-    If it is, extract the target date in YYYY-MM-DD format.
-    If not, return "current".
+    Determine:
+    1. If this query is about a specific future date or day of the week
+    2. The specific time of day if mentioned (morning, afternoon, evening, night)
+    3. If the time is implied by the chat history
     
-    Return ONLY the date in YYYY-MM-DD format or "current" if it's about current weather.
-    Do not include any explanation or additional text.
+    Return the date and time in one of these formats:
+    - For current weather: "current"
+    - For future date: "YYYY-MM-DD"
+    - For future date with time: "YYYY-MM-DD HH:mm"
+    - For relative time (today, tomorrow): "current" or "YYYY-MM-DD"
+    
+    Return ONLY the date/time string. Do not include any explanation or additional text.
   `;
 
   try {
