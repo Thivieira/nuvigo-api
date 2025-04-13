@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes';
 import { locationRoutes } from './routes/location.routes';
 import registerPlugins from './plugins';
 import chatSessionRoutes from './routes/chat-session.routes';
+import { env } from './env';
 
 const app = Fastify({
   logger: {
@@ -39,7 +40,7 @@ app.register(locationRoutes, { prefix: '/location' });
 
 const start = async () => {
   try {
-    await app.listen({ port: 3333, host: '0.0.0.0' });
+    await app.listen({ port: env.PORT, host: '0.0.0.0' });
     console.log('Server is running on http://localhost:3333');
     console.log('Documentation is running on http://localhost:3333/documentation');
   } catch (err) {
