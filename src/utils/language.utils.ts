@@ -150,6 +150,17 @@ export const analyzeWeatherData = async (
       - Se for uma previsão futura, use o tempo futuro ("será", "estará", "haverá")
       - Se for uma previsão atual, use o tempo presente ("está", "há")
       
+      DETALHES ADICIONAIS:
+      - Se o usuário pedir mais detalhes ou parecer interessado em informações específicas, forneça:
+        1. Detalhes sobre a variação de temperatura ao longo do dia
+        2. Informações sobre a direção do vento e rajadas
+        3. Detalhes sobre a umidade relativa do ar
+        4. Informações sobre a pressão atmosférica
+        5. Previsão de chuva mais detalhada (intensidade, duração)
+        6. Recomendações específicas para atividades ao ar livre
+        7. Comparação com a média histórica para o período
+        8. Alertas meteorológicos relevantes
+      
       Mantenha o tom amigável e profissional.
     `,
     en: `
